@@ -75,6 +75,7 @@ typedef struct
 uint8_t getTipoOperando(uint32_t op);
 uint32_t getDireccionFisica(tipoMV programa, uint32_t direccion_logica);
 void MostrarBinario(char numero);
+uint32_t PropagarSigno(uint32_t valor, uint32_t cant);
 uint32_t getValorCargar(tipoMV *programa, uint32_t OP, uint8_t tipo_op);
 void ModificarCC(tipoMV *programa, uint32_t resultado);
 void SetearAccesoMemoria(tipoMV *programa, uint32_t OP, uint8_t bytes, uint32_t direccion_fisica);

@@ -86,9 +86,8 @@ void leeroperando(tipoMV *mv, int TOP, uint32_t Op) {
         case 0b10:{  // Inmediato (2 bytes, con signo)
             int16_t valor = (mv->memoria[dir] << 8) | mv->memoria[dir + 1];  // 16 bits con signo
 
-            // valor & 0xF000
             if (valor & 0x8000)
-                valor |= 0xFF000000; // Propagación de signo a 32 bits
+                valor |= 0xFFFF0000; // Propagación de signo a 32 bits
 
             mv->registros[Op] = (TIPO_INMEDIATO << 24) | (valor & 0x00FFFFFF); // Marca tipo y guarda valor
             mv->registros[IP] += 2;
@@ -171,35 +170,35 @@ void ModificarCC(tipoMV *programa, uint32_t resultado){
 }
 
 void SetearAccesoMemoria(tipoMV *programa, uint32_t OP, uint8_t bytes, uint32_t direccion_fisica){
-    programa->registros[LAR] = programa->registros[(OP & 0xFF0000) >> 16] + (OP & 0x0000FFFF);
+    programa->registros[LAR] = programa->registros[(OP & 0x1F0000) >> 16] + (OP & 0xFFFF);
     programa->registros[MAR] = (programa->registros[MAR] & 0xFFFF0000) + direccion_fisica;
     programa->registros[MAR] = (programa->registros[MAR] & 0xFFFF) + (bytes << 16);
 }
 
 
 
-uint32_t SAR(uint32_t valor, uint32_t cant){
-    uint8_t cargar = 0;
-    if ((valor & 0xF0000000) == 0xF0000000)
-        cargar = 1;
-    for (int i=0;i<cant;i++){
-        valor = valor >> 1;
-        valor += (cargar << 31);
-    }
+uint32_t PropagarSigno(uint32_t valor, uint32_t cant){
+    if ((valor & 0x80000000) == 0x80000000)
+        for (int i=0;i<cant;i++){
+            valor = valor >> 1;
+            valor += (1 << 31);
+        }
+    else valor = valor >> cant;
     return valor;
 }
 
 uint32_t getValorCargar(tipoMV *programa, uint32_t OP, uint8_t tipo_op){
     uint32_t direccion_fisica;
     if (tipo_op == 3){
-        direccion_fisica = getDireccionFisica(*programa, programa->registros[(OP & 0x00FF0000) >> 16]+ (OP & 0x0000FFFF));
+        direccion_fisica = getDireccionFisica(*programa, programa->registros[(OP & 0x1F0000) >> 16]+ (OP & 0xFFFF));
         SetearAccesoMemoria(programa, OP, 1, direccion_fisica);
+        programa->registros[MBR] = programa->memoria[direccion_fisica];
         return programa->registros[MBR];
     }
     else
         if (tipo_op == 1)
-            return programa->registros[(OP & 0x000000FF)];
-        else return SAR(((OP & 0x0000FFFF) << 16),16);
+            return programa->registros[(OP & 0x1F)];
+        else return PropagarSigno(((OP & 0xFFFF) << 16),16);
 }
 
 void MostrarBinario(char numero){
@@ -218,7 +217,7 @@ int main() {
     tipoMV mv;
     tipoInstruccion* instrucciones;
     int instruccion_size = 0;
-    char *argv[] = {"AssemblerDIV.vmx", NULL};// Simulando el argumento de linea de comandos
+    char *argv[] = {"sample.vmx", NULL};// Simulando el argumento de linea de comandos
     int argc = 2;
     // Verifico que se haya ingresado el nombre del archivo
     if (argc > 1 && leerEncabezado(argv[0], &mv) ) {

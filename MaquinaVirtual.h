@@ -1,16 +1,13 @@
+
 #ifndef MAQUINAVIRTUAL_H_INCLUDED
 #define MAQUINAVIRTUAL_H_INCLUDED
 
-
 #include <stdint.h>
+
 #define TAMANIO_MEMORIA 16384
 #define NUM_REGISTROS 32
-
 #define VERSION 1
 #define IDENTIFICADOR "VMX25"
-
-#define TAM_CELDA 4
-
 
 typedef enum
 {
@@ -19,13 +16,13 @@ typedef enum
     MAR = 1,
     MBR = 2,
 
-    // Instrucci�n
+    // Instruccion
     IP = 3,
     OPC = 4,
     OP1 = 5,
     OP2 = 6,
 
-    // Registros de prop�sito general
+    // Registros de proposito general
     EAX = 10,
     EBX = 11,
     ECX = 12,
@@ -33,14 +30,14 @@ typedef enum
     EEX = 14,
     EFX = 15,
 
-    // Acumulador y c�digo de condici�n
+    // Acumulador y codigo de condicion
     AC = 16,
     CC = 17,
 
     // Segmentos
     CS = 26,
     DS = 27,
-} t_registro;
+} tipoRegistro;
 
 typedef struct MV
 {
@@ -54,23 +51,11 @@ typedef struct MV
 typedef enum
 {
     NINGUNO = 0,
-    TIPO_REGISTRO = 1,
-    TIPO_INMEDIATO = 2,
-    TIPO_MEMORIA = 3
+    TRegistro = 1,
+    TInmediato = 2,
+    TMemoria = 3
 } tipoOperando;
 
-typedef struct
-{
-    int valor;
-    tipoOperando Operando;
-} tipoOperador;
-
-typedef struct
-{
-    char opcodigo;
-    tipoOperador op1, op2;
-
-} tipoInstruccion;
 
 uint8_t getTipoOperando(uint32_t op);
 uint32_t getDireccionFisica(tipoMV programa, uint32_t direccion_logica);
@@ -81,6 +66,5 @@ void ModificarCC(tipoMV *programa, uint32_t resultado);
 void SetearAccesoMemoria(tipoMV *programa, uint32_t OP, uint8_t bytes, uint32_t direccion_fisica);
 uint32_t CambiarSigno(uint32_t valor);
 void ModificarIP(tipoMV *programa, char valor);
-
 
 #endif // MAQUINAVIRTUAL_H_INCLUDED

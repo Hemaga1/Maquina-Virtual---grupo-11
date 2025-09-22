@@ -2,14 +2,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <math.h>
 #include "maquinaVirtual.h"
 #include "Instrucciones.h"
 
 typedef char VecString[4];
 
-int main(int argc, char *argv[])
+int main(int argce, char *argve[])
 {
     tipoMV mv;
+    int argc = 3;
+    char *argv[] = {NULL, "leerBinario.vmx", "-d"};
     // Verifico que se haya ingresado el nombre del archivo
     if (argc >= 2)
     {
@@ -59,7 +62,6 @@ int leerEncabezado(const char *filename, tipoMV *programa)
         fread(&(programa->version), 1, 1, arch);
         if (programa->version == VERSION)
         {
-            //fseek(arch, 0, SEEK_SET);
             fread(tamanios, sizeof(char), 2, arch);
             high = tamanios[0] & 0x0FF;
             low = tamanios[1] & 0x0FF;
@@ -257,14 +259,14 @@ void leerOperando(tipoMV *mv, int TOP, uint32_t Op)
     break;
 
         printf( "Error: Tipo de operando inválido (%d).\n", TOP);
-        exit(EXIT_FAILURE);
+        exit(1);
     }
 }
 
 void ejecutar_maquina(tipoMV *mv)
 {
     funcion operaciones[32];
-    // cambiar tabla a matriz
+
     short offset;
     short dir = mv->TS[0][0];
     uint8_t instruccion;
@@ -298,7 +300,13 @@ void ejecutar_maquina(tipoMV *mv)
 
         // EJECUCION INSTRUCCION
 
-        operaciones[mv->registros[OPC]](mv, mv->registros[OP1], mv->registros[OP2]);
+        if (mv->registros[OPC] >= 0 && mv->registros[OPC] < NUM_INSTRUCCIONES && operaciones[mv->registros[OPC]] != NULL)
+            operaciones[mv->registros[OPC]](mv, mv->registros[OP1], mv->registros[OP2]);
+        else {
+            printf("No hay función asociada.\n");
+            return exit(1);
+        }
+
     }
 }
 
@@ -307,7 +315,26 @@ uint8_t getTipoOperando(uint32_t op){
 }
 
 uint32_t getDireccionFisica(tipoMV programa, uint32_t direccion_logica){
-    return programa.TS[direccion_logica >> 16][0] + (direccion_logica & 0xFFFF);
+    uint32_t segmento = direccion_logica >> 16;
+    uint32_t offset   = direccion_logica & 0xFFFF;
+
+    // Valida que el segmento exista
+    if (segmento >= 8) {
+        printf("Fallo de segmento: segmento %u inválido\n", segmento);
+        exit(1);
+    }
+
+    uint32_t base  = programa.TS[segmento][0];
+    uint32_t limite = programa.TS[segmento][1];
+
+    // Valida que el offset esté dentro del límite
+    if (offset >= limite) {
+        printf("Fallo de segmento: offset 0x%X fuera del límite 0x%X del segmento %u\n",
+               offset, limite, segmento);
+        exit(1);
+    }
+
+    return base + offset;
 }
 
 uint32_t CambiarSigno(uint32_t valor){
@@ -362,16 +389,29 @@ uint32_t getValorCargar(tipoMV *programa, uint32_t OP, uint8_t tipo_op, uint8_t 
         else return PropagarSigno(((OP & 0xFFFF) << 16),16);
 }
 
-void MostrarBinario(char numero){
-    uint8_t Vec[200];
-    char N = -1;
-    while (numero != 0){
-        N++;
-        Vec[N] = numero & 1;
-        numero = numero >> 1;
+uint32_t StringABinario(char cadena[33]){
+    uint32_t suma = 0;
+    if (cadena[31] == '1')
+        for (int i=32;i>-1;i--){
+            if (cadena[i] == '1')
+                suma += (1 << 31-i);
+        }
+    else
+        for (int i=32;i>-1;i--){
+            if (cadena[i] == '1')
+                suma += (0x80000000 >> (31-i));
+        }
+    return suma;
+}
+
+void MostrarBinario(uint32_t numero){
+    if (numero != 0){
+        MostrarBinario(numero >> 1);
+        if(numero & 1)
+            printf("1");
+        else
+            printf("0");
     }
-    for (int i=N;i>=0;i--)
-        printf("%d",Vec[i]);
 }
 
 

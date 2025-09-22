@@ -307,7 +307,11 @@ void DIV(tipoMV *programa , uint32_t op1, uint32_t op2){
                 programa->registros[AC] = valor_original - (valor_cargar*programa->registros[op1 & 0x1F]);
         }
     }
-    else printf("Division por 0\n"); //Hacer control de error
+    else {
+        printf("ERROR: Division por 0\n");
+        exit(1);
+    }
+
 }
 
 void CMP(tipoMV *programa, uint32_t op1, uint32_t op2){
@@ -680,7 +684,7 @@ void RND(tipoMV *programa, uint32_t op1, uint32_t op2){
 void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
     programa->registros[OP1] = op2;
     programa->registros[OP2] = 0;
-
+    char cadena[33];
     uint32_t direccion_fisica = getDireccionFisica(*programa,programa->registros[EDX]);
     uint16_t formato = programa->registros[EAX];
     SetearAccesoMemoria(programa, (0x13 << 16) + (programa->registros[EDX] & 0xFFFF), (programa->registros[ECX] & 0xFFFF) , direccion_fisica);
@@ -700,15 +704,18 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
             for (int k=0;k<5;k++){
                 if (formato & 1)
                     switch (k){
-                        case 0: scanf("%d",&programa->registros[MBR]);
-                            break;
+                        case 0: if (programa->registros[MBR] & 0x80000000)
+                                    printf("[%04X]: -%d\n",direccion_fisica, CambiarSigno(programa->registros[MBR]));
+                                else
+                                    printf("[%04X]: %d\n",direccion_fisica, programa->registros[MBR]);
+                        break;
                         case 1: scanf("%c",&programa->registros[MBR]);
                             break;
                         case 2: scanf("%o",&programa->registros[MBR]);
                             break;
                         case 3: scanf("%X",&programa->registros[MBR]);
                             break;
-                        case 4: scanf("%d",&programa->registros[MBR]);
+                        case 4: scanf("%s",cadena); programa->registros[MBR] = StringABinario(cadena);
                             break;
                     }
                 formato = formato >> 1;
@@ -726,11 +733,6 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
 
         for (int i=0; i<(programa->registros[ECX] & 0xFFFF); i++){
 
-            /*for(int i=0;i<16000;i++)
-                if(programa->memoria[i])
-                    printf("[%04X]: %X\n",i,programa->memoria[i]);*/
-
-
             formato = programa->registros[EAX];
 
             SetearAccesoMemoria(programa, (0x13 << 16) + (programa->registros[EDX] & 0xFFFF), (programa->registros[ECX] & 0xFFFF) , direccion_fisica);
@@ -740,20 +742,26 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
                 programa->registros[MBR] += (programa->memoria[direccion_fisica + ((programa->registros[ECX] & 0xFFFF0000) >> 16) - j] << (j*8));
             }
 
-
-
             for (int k=0;k<5;k++){
                 if (formato & 1)
                     switch (k){
-                        case 0: printf("[%04X]: %d\n",direccion_fisica, programa->registros[MBR]);
+                        case 0:
+                            if (programa->registros[MBR] & (0x80000000)) {
+                                programa->registros[MBR] = CambiarSigno(programa->registros[MBR]);
+                            }
+                            printf("[%04X]: %d\n",direccion_fisica, programa->registros[MBR]);
                             break;
-                        case 1: printf("[%04X]: %c\n",direccion_fisica, programa->registros[MBR]);
+                        case 1:
+                            if (programa->registros[MBR] < 255 && isprint(programa->registros[MBR]))
+                                printf("[%X]: %c\n", direccion_fisica, programa->registros[MBR]);
+                            else
+                                printf("[%X]: .\n", direccion_fisica);
                             break;
-                        case 2: printf("[%04X]: %o\n",direccion_fisica, programa->registros[MBR]);
+                        case 2: printf("[%04X]: 0o%o\n",direccion_fisica, programa->registros[MBR]);
                             break;
-                        case 3: printf("[%04X]: %X\n",direccion_fisica, programa->registros[MBR]);
+                        case 3: printf("[%04X]: 0x%X\n",direccion_fisica, programa->registros[MBR]);
                             break;
-                        case 4: printf("[%04X]: ",direccion_fisica); MostrarBinario(programa->registros[MBR]); printf("\n");
+                        case 4: printf("[%04X]: 0b",direccion_fisica); MostrarBinario(programa->registros[MBR]); printf("\n");
                             break;
                     }
                 formato = (formato >> 1);

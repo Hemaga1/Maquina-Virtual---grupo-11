@@ -9,9 +9,6 @@
 #define VERSION 1
 #define IDENTIFICADOR "VMX25"
 
-#define TAM_CELDA 4
-
-
 typedef enum
 {
     // Acceso a memoria
@@ -19,13 +16,13 @@ typedef enum
     MAR = 1,
     MBR = 2,
 
-    // Instrucci�n
+    // Instruccion
     IP = 3,
     OPC = 4,
     OP1 = 5,
     OP2 = 6,
 
-    // Registros de prop�sito general
+    // Registros de proposito general
     EAX = 10,
     EBX = 11,
     ECX = 12,
@@ -33,7 +30,7 @@ typedef enum
     EEX = 14,
     EFX = 15,
 
-    // Acumulador y c�digo de condici�n
+    // Acumulador y codigo de condicion
     AC = 16,
     CC = 17,
 
@@ -62,7 +59,8 @@ typedef enum
 
 uint8_t getTipoOperando(uint32_t op);
 uint32_t getDireccionFisica(tipoMV programa, uint32_t direccion_logica);
-void MostrarBinario(char numero);
+void MostrarBinario(uint32_t numero);
+uint32_t StringABinario(char cadena[33]);
 uint32_t PropagarSigno(uint32_t valor, uint32_t cant);
 uint32_t getValorCargar(tipoMV *programa, uint32_t OP, uint8_t tipo_op, uint8_t bytes);
 void ModificarCC(tipoMV *programa, uint32_t resultado);

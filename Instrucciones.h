@@ -2,6 +2,8 @@
 #define INSTRUCCIONES_H_INCLUDED
 #include "maquinaVirtual.h"
 
+#define NUM_INSTRUCCIONES 32
+
 typedef void (*funcion)(tipoMV *programa, uint32_t op1, uint32_t op2);
 void inicioVectorOper(funcion operacion[]);
 extern const char* Mnemonicos[32];

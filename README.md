@@ -41,14 +41,6 @@ Si la compilación fue exitosa, verás:
 Compilación exitosa
 ```
 
-### 🧹 Limpiar compilación
-
-Para eliminar los archivos generados:
-
-```bash
-mingw32-make clean
-```
-
 ## ▶️ Ejecución
 
 Desde la terminal, ejecuta el programa:

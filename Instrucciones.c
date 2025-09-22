@@ -742,10 +742,12 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
             for (int k=0;k<5;k++){
                 if (formato & 1)
                     switch (k){
-                        case 0: if (programa->registros[MBR] & 0x80000000)
-                                    printf("[%04X]: -%d\n",direccion_fisica, CambiarSigno(programa->registros[MBR]));
-                                else
-                                    printf("[%04X]: %d\n",direccion_fisica, programa->registros[MBR]);
+                        case 0:
+                            if (programa->registros[MBR] & 0x80000000)
+                                printf("[%04X]: -%d\n",direccion_fisica, CambiarSigno(programa->registros[MBR]));
+                            else
+                                printf("[%04X]: %d\n",direccion_fisica, programa->registros[MBR]);
+                            break;
                         case 1:
                             if (programa->registros[MBR] < 255 && isprint(programa->registros[MBR]))
                                 printf("[%X]: %c\n", direccion_fisica, programa->registros[MBR]);
@@ -866,3 +868,4 @@ void NOT(tipoMV *programa, uint32_t op1, uint32_t op2){
 void STOP(tipoMV *programa, uint32_t op1, uint32_t op2){
     programa->registros[IP] = -1;
 }
+

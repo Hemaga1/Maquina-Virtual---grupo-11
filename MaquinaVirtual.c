@@ -8,11 +8,9 @@
 
 typedef char VecString[4];
 
-int main(int argce, char *argve[])
+int main(int argc, char *argv[])
 {
     tipoMV mv;
-    int argc = 3;
-    char *argv[] = {NULL, "leerBinario.vmx", "-d"};
     // Verifico que se haya ingresado el nombre del archivo
     if (argc >= 2)
     {

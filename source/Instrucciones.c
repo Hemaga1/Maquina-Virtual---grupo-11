@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <ctype.h>
+#include <time.h>
 
 void inicioVectorOper(funcion operacion[]) {
     operacion[0]  = &SYS;
@@ -645,6 +646,8 @@ void RND(tipoMV *programa, uint32_t op1, uint32_t op2){
     uint8_t tipo_op2 = getTipoOperando(op2);
     uint32_t direccion_fisica;
     int32_t valor_cargar;
+
+    srand(time(NULL));
 
     valor_cargar = getValorCargar(programa, op2, tipo_op2, 4);
 

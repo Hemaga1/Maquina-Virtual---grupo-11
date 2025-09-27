@@ -17,7 +17,7 @@ void inicioVectorOper(funcion operacion[]) {
     operacion[7]  = &JNN;
     operacion[8]  = &NOT;
 
-    // Posiciones no utilizadas (instrucciones inválidas)
+    // Posiciones no utilizadas (instrucciones invalidas)
     operacion[9]  = NULL;
     operacion[10] = NULL;
     operacion[11] = NULL;
@@ -103,11 +103,9 @@ void MOV(tipoMV *programa, uint32_t op1, uint32_t op2){
         for (int i=0; i<4 ; i++){
             programa->memoria[direccion_fisica + 3 - i] = (programa->registros[MBR] & (0xFF << (i*8))) >> (i*8);
         }
-        ModificarCC(programa,programa->registros[MBR]);
     }
     else {
             programa->registros[op1 & 0x1F] = valor_cargar;
-            ModificarCC(programa,programa->registros[op1 & 0x1F]);
     }
 
 }
@@ -768,9 +766,7 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
                                         printf("%c",(programa->registros[MBR] & (0xFF << (g*8))) >> (g*8));
                                     else {
                                         printf(".");
-                                        break;
                                     }
-
                                 }
                                 printf(" ");
                             break;

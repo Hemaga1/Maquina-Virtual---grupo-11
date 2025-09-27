@@ -56,7 +56,7 @@ typedef enum
     TMemoria = 3
 } tipoOperando;
 
-const char *NombreRegistro[28];
+extern const char *NombreRegistro[28];
 int leerEncabezado(const char *filename, tipoMV *mv);
 void Disassembler(tipoMV programa);
 void PrintOperando(uint32_t op);

@@ -6,13 +6,6 @@
 #include "maquinaVirtual.h"
 #include "Instrucciones.h"
 
-typedef char VecString[4];
-
-int leerEncabezado(const char *filename, tipoMV *mv);
-void Disassembler(tipoMV programa);
-void PrintOperando(uint32_t op, VecString Vec[]);
-void InicializarRegistros(uint32_t registros[]);
-void ejecutar_maquina(tipoMV *mv);
 
 int main(int argc, char *argv[])
 {
@@ -62,7 +55,6 @@ int leerEncabezado(const char *filename, tipoMV *programa)
     }
     else
     {
-        int version;
         fread(&(programa->version), 1, 1, arch);
         if (programa->version == VERSION)
         {
@@ -96,18 +88,6 @@ void Disassembler(tipoMV programa)
     uint32_t dir = 0;
     uint32_t cantbytes;
     uint32_t op1, op2;
-    VecString Vec[32];
-
-    strcpy(Vec[10], "EAX");
-    strcpy(Vec[11], "EBX");
-    strcpy(Vec[12], "ECX");
-    strcpy(Vec[13], "EDX");
-    strcpy(Vec[14], "EEX");
-    strcpy(Vec[15], "EFX");
-    strcpy(Vec[16], "AC");
-    strcpy(Vec[17], "CC");
-    strcpy(Vec[26], "CS");
-    strcpy(Vec[27], "DS");
 
     while (dir < programa.TS[1][0])
     {
@@ -127,7 +107,12 @@ void Disassembler(tipoMV programa)
             cantbytes++;
         }
         printf("| ");
-        printf("%s ", Mnemonicos[programa.memoria[dir] & 0x1F]);
+        uint8_t instruccion = programa.memoria[dir] & 0x1F;
+        if (instruccion >= 0 && instruccion < NUM_INSTRUCCIONES) {
+            printf("%s ", Mnemonicos[programa.memoria[dir] & 0x1F]);
+        }
+        else
+             printf("%s ","Codigo de instruccion Invalido");
         dir++;
 
         switch (op2 >> 24)
@@ -170,25 +155,25 @@ void Disassembler(tipoMV programa)
 
         if (((op1 >> 24) != 0) && ((op2 >> 24) != 0))
         {
-            PrintOperando(op1, Vec);
+            PrintOperando(op1);
             printf(", ");
-            PrintOperando(op2, Vec);
+            PrintOperando(op2);
         }
         else
         {
             if ((op2 >> 24) != 0)
-                PrintOperando(op2, Vec);
+                PrintOperando(op2);
         }
         printf("\n");
     }
 }
 
-void PrintOperando(uint32_t op, VecString Vec[]){
+void PrintOperando(uint32_t op){
     uint32_t valor;
     switch (op >> 24) {
                 case 0:
                     break;
-                case 1: printf("%s",Vec[op & 0x1F]);
+                case 1: printf("%s",NombreRegistro[op & 0x1F]);
                     break;
                 case 2: if (op & 0x8000){
                             valor = op & 0xFFFF;
@@ -198,7 +183,7 @@ void PrintOperando(uint32_t op, VecString Vec[]){
                         else printf("%d",op & 0xFFFF);
                     break;
                 case 3: printf("[");
-                        printf("%s", Vec[(op & 0x1F0000) >> 16]);
+                        printf("%s", NombreRegistro[(op & 0x1F0000) >> 16]);
                         if ((op & 0xFFFF) != 0){
                             if (op & 0x8000){
                                 valor = op & 0xFFFF;
@@ -245,9 +230,8 @@ void leerOperando(tipoMV *mv, int TOP, uint32_t Op)
     case TInmediato:
     {
         int16_t valor = (mv->memoria[dir] << 8) | mv->memoria[dir + 1]; // 16 bits con signo
-
         if (valor & 0x8000)
-            valor |= 0xFFFF0000; // Propagación de signo a 32 bits
+            valor |= 0xFFFF0000; // Propagación de signo a 16 bits
 
         mv->registros[Op] = (TInmediato << 24) | (valor & 0x00FFFFFF); // Marca tipo y guarda valor
         mv->registros[IP] += 2;
@@ -256,7 +240,7 @@ void leerOperando(tipoMV *mv, int TOP, uint32_t Op)
 
     case TMemoria:
     {
-        int32_t valor = (mv->memoria[dir] << 16) | (mv->memoria[dir + 1] << 8) | mv->memoria[dir + 2];
+        uint32_t valor = (mv->memoria[dir] << 16) | (mv->memoria[dir + 1] << 8) | mv->memoria[dir + 2];
         mv->registros[Op] = (TMemoria << 24) | (valor & 0x00FFFFFF);
         mv->registros[IP] += 3;
     }
@@ -270,9 +254,6 @@ void leerOperando(tipoMV *mv, int TOP, uint32_t Op)
 void ejecutar_maquina(tipoMV *mv)
 {
     funcion operaciones[32];
-
-    short offset;
-    short dir = mv->TS[0][0];
     uint8_t instruccion;
     uint16_t mascaraOPC = 0x01F;   // mascara para obtener el codigo de operacion
     uint16_t mascaraTOP = 0x03;  // mascara para obtener tipos de operando
@@ -285,8 +266,8 @@ void ejecutar_maquina(tipoMV *mv)
         uint32_t posicion = mv->registros[IP];
         instruccion = mv->memoria[posicion];
         mv->registros[OPC] = instruccion & mascaraOPC;
-        TOP2 = (instruccion >> 6) & 0x03;
-        TOP1 = (instruccion >> 4) & 0x03;
+        TOP2 = (instruccion >> 6) & mascaraTOP;
+        TOP1 = (instruccion >> 4) & mascaraTOP;
 
         mv->registros[IP] = mv->registros[IP] + 1;
 
@@ -300,14 +281,14 @@ void ejecutar_maquina(tipoMV *mv)
             leerOperando(mv, TOP1, OP1);
         else
             mv->registros[OP1] = 0;
-
-
         // EJECUCION INSTRUCCION
+
+        uint32_t aux =mv->registros[OPC];
 
         if (mv->registros[OPC] >= 0 && mv->registros[OPC] < NUM_INSTRUCCIONES && operaciones[mv->registros[OPC]] != NULL)
             operaciones[mv->registros[OPC]](mv, mv->registros[OP1], mv->registros[OP2]);
         else {
-            printf("No hay función asociada.\n");
+            printf("ERROR: Instruccion Invalida.\n");
             return exit(1);
         }
 
@@ -383,7 +364,7 @@ uint32_t getValorCargar(tipoMV *programa, uint32_t OP, uint8_t tipo_op, uint8_t 
         SetearAccesoMemoria(programa, OP, bytes, direccion_fisica);
         programa->registros[MBR] = 0;
         for (int i=0; i<bytes; i++){
-            programa->registros[MBR] += programa->memoria[direccion_fisica + bytes - i] << (i*8);
+            programa->registros[MBR] |= programa->memoria[direccion_fisica + bytes - 1 - i] << (i*8);
         }
         return programa->registros[MBR];
     }
@@ -418,4 +399,26 @@ void MostrarBinario(uint32_t numero){
     }
 }
 
+const char *NombreRegistro[28] = {
+    [0] = "LAR",
+    [1] = "MAR",
+    [2] = "MBR",
 
+    [3] = "IP",
+    [4] = "OPC",
+    [5] = "OP1",
+    [6] = "OP2",
+
+    [10] = "EAX",
+    [11] = "EBX",
+    [12] = "ECX",
+    [13] = "EDX",
+    [14] = "EEX",
+    [15] = "EFX",
+
+    [16] = "AC",
+    [17] = "CC",
+
+    [26] = "CS",
+    [27] = "DS"
+};

@@ -1,5 +1,5 @@
 CC      = gcc
-CFLAGS  = -Wall -Wextra -std=c11 -Wno-type-limits
+CFLAGS  = -std=c11
 LDFLAGS = 
 
 SRC_DIR = source
@@ -7,26 +7,29 @@ OBJ_DIR = obj
 BIN_DIR = bin
 TARGET = $(BIN_DIR)/vmx.exe
 
-# Detecta todos los archivos .c en SRC_DIR
 SRC = $(wildcard $(SRC_DIR)/*.c)
-# Genera la lista de objetos en OBJ_DIR
 OBJ = $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(SRC))
 
 all: $(TARGET)
+	@echo Compilacion completada con exito
 
-# Regla para el ejecutable
+# Asegura que se crean los directorios
+$(TARGET): | $(BIN_DIR) $(OBJ_DIR)
 $(TARGET): $(OBJ)
-	@if not exist $(BIN_DIR) mkdir $(BIN_DIR) >nul 2>&1
-	@$(CC) $(CFLAGS) $(OBJ) -o $@ $(LDFLAGS) >nul 2>&1
-	@if %ERRORLEVEL%==0 (echo Compilacion exitosa) else (echo Compilacion fallida)
+	$(CC) $(CFLAGS) $(OBJ) -o $@ $(LDFLAGS)
 
-# Regla genérica para los .o
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c $(SRC_DIR)/%.h
-	@if not exist $(OBJ_DIR) mkdir $(OBJ_DIR) >nul 2>&1
-	@$(CC) $(CFLAGS) -c $< -o $@ >nul 2>&1
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
-# Limpiar bin y obj
+# Crear directorios si no existen
+$(BIN_DIR):
+	mkdir -p $(BIN_DIR)
+
+$(OBJ_DIR):
+	mkdir -p $(OBJ_DIR)
+
 clean:
-	@del /Q $(OBJ_DIR)\*.o $(TARGET) >nul 2>&1
+	del /Q $(OBJ_DIR)\*.o
+	del /Q $(BIN_DIR)\*.exe
 
-.PHONY: all clean
+.PHONY: all clean  quiero que no muestre advertencias y solo un mensaje derror si no se pudo compilar

@@ -32,4 +32,4 @@ clean:
 	del /Q $(OBJ_DIR)\*.o
 	del /Q $(BIN_DIR)\*.exe
 
-.PHONY: all clean  quiero que no muestre advertencias y solo un mensaje derror si no se pudo compilar
+.PHONY: all clean

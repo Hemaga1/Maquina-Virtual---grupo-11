@@ -85,606 +85,274 @@ const char *Mnemonicos[32] = {
 };
 
 void MOV(tipoMV *programa, uint32_t op1, uint32_t op2){
-    uint8_t tipo_op1 = getTipoOperando(op1);
-    uint8_t tipo_op2 = getTipoOperando(op2);
-    uint32_t direccion_fisica;
     uint32_t valor_cargar;
 
-    valor_cargar = getValorCargar(programa, op2, tipo_op2, 4);
-
-    if (tipo_op1 == 3){
-        if (programa->registros[(op1 & 0x1F0000) >> 16])
-            direccion_fisica = getDireccionFisica(*programa, programa->registros[(op1 & 0x1F0000) >> 16]+ (op1 & 0xFFFF));
-        else
-            direccion_fisica = getDireccionFisica(*programa,  0x10000 + (op1 & 0xFFFF));
-        SetearAccesoMemoria(programa, op1, 4, direccion_fisica);
-        programa->registros[MBR] = valor_cargar;
-
-        for (int i=0; i<4 ; i++){
-            programa->memoria[direccion_fisica + 3 - i] = (programa->registros[MBR] & (0xFF << (i*8))) >> (i*8);
-        }
-    }
-    else {
-            programa->registros[op1 & 0x1F] = valor_cargar;
-    }
-
+    valor_cargar = getValorCargar(programa, op2);
+    setOperando(programa,op1,valor_cargar);
 }
 
 void ADD(tipoMV *programa, uint32_t op1, uint32_t op2){
-    uint8_t tipo_op1 = getTipoOperando(op1);
-    uint8_t tipo_op2 = getTipoOperando(op2);
-    uint32_t direccion_fisica;
     uint32_t valor_cargar;
+    uint32_t sumar;
 
-    valor_cargar = getValorCargar(programa, op2, tipo_op2, 4);
+    sumar = getValorCargar(programa, op2);
+    valor_cargar = getValorCargar(programa, op1);
 
-    if (tipo_op1 == 3){
-        if (programa->registros[(op1 & 0x1F0000) >> 16])
-            direccion_fisica = getDireccionFisica(*programa, programa->registros[(op1 & 0x1F0000) >> 16]+ (op1 & 0xFFFF));
-        else
-            direccion_fisica = getDireccionFisica(*programa,  0x10000 + (op1 & 0xFFFF));
-        SetearAccesoMemoria(programa, op1, 4, direccion_fisica);
-        programa->registros[MBR] = 0;
-        for (int i=0; i<4; i++){
-            programa->registros[MBR] += programa->memoria[direccion_fisica + 3 - i] << (i*8);
-        }
-        if (valor_cargar >= 0)
-            programa->registros[MBR] += valor_cargar;
-        else
-            programa->registros[MBR] -= CambiarSigno(valor_cargar);
+    if (sumar & 0x80000000)
+        valor_cargar -= CambiarSigno(sumar);
+    else
+        valor_cargar += sumar;
 
-        SetearAccesoMemoria(programa, op1, 4, direccion_fisica);
-        for (int i=0; i<4; i++){
-            programa->memoria[direccion_fisica + 3 - i] = (programa->registros[MBR] & (0xFF << (i*8))) >> (i*8);
-        }
-        ModificarCC(programa,programa->registros[MBR]);
-    }
-    else {
-            if (valor_cargar & 0x80000000)
-                programa->registros[op1 & 0x1F] -= CambiarSigno(valor_cargar) ;
-            else
-                programa->registros[op1 & 0x1F] += valor_cargar;
-            ModificarCC(programa,programa->registros[op1 & 0x1F]);
-    }
+    setOperando(programa,op1,valor_cargar);
+
+    ModificarCC(programa,valor_cargar);
 }
 
 void SUB(tipoMV *programa , uint32_t op1, uint32_t op2){
-    uint8_t tipo_op1 = getTipoOperando(op1);
-    uint8_t tipo_op2 = getTipoOperando(op2);
-    uint32_t direccion_fisica;
     uint32_t valor_cargar;
+    uint32_t restar;
 
-    valor_cargar = getValorCargar(programa, op2, tipo_op2, 4);
+    restar = getValorCargar(programa, op2);
+    valor_cargar = getValorCargar(programa, op1);
 
-    if (tipo_op1 == 3){
-        if (programa->registros[(op1 & 0x1F0000) >> 16])
-            direccion_fisica = getDireccionFisica(*programa, programa->registros[(op1 & 0x1F0000) >> 16]+ (op1 & 0xFFFF));
-        else
-            direccion_fisica = getDireccionFisica(*programa,  0x10000 + (op1 & 0xFFFF));
-        SetearAccesoMemoria(programa, op1, 4, direccion_fisica);
-        programa->registros[MBR] = 0;
-        for (int i=0; i<4; i++){
-            programa->registros[MBR] += programa->memoria[direccion_fisica + 3 - i] << (i*8);
-        }
-        if (valor_cargar >= 0)
-            programa->registros[MBR] -= valor_cargar;
-        else
-            programa->registros[MBR] += CambiarSigno(valor_cargar);
+    if (restar & 0x80000000)
+        valor_cargar += CambiarSigno(restar);
+    else
+        valor_cargar -= restar;
 
-        SetearAccesoMemoria(programa, op1, 4, direccion_fisica);
-        for (int i=0; i<4; i++){
-            programa->memoria[direccion_fisica + 3 -i] = (programa->registros[MBR] & (0xFF << (i*8))) >> (i*8);
-        }
-        ModificarCC(programa,programa->registros[MBR]);
-    }
-    else {
-            if (valor_cargar & 0x80000000)
-                programa->registros[op1 & 0x1F] += CambiarSigno(valor_cargar) ;
-            else
-                programa->registros[op1 & 0x1F] -= valor_cargar;
-            ModificarCC(programa,programa->registros[op1 & 0x1F]);
-    }
+    setOperando(programa,op1,valor_cargar);
+
+    ModificarCC(programa,valor_cargar);
 }
 
 void MUL(tipoMV *programa, uint32_t op1, uint32_t op2){
-    uint8_t tipo_op1 = getTipoOperando(op1);
-    uint8_t tipo_op2 = getTipoOperando(op2);
-    uint8_t negativo = 0;
-    uint32_t direccion_fisica;
     uint32_t valor_cargar;
+    uint32_t multiplicar;
+    uint8_t negativo = 0;
 
-    valor_cargar = getValorCargar(programa, op2, tipo_op2, 4);
+    multiplicar = getValorCargar(programa, op2);
+
+    if(multiplicar & 0x80000000){
+        negativo = 1;
+        multiplicar = CambiarSigno(multiplicar);
+    }
+
+    valor_cargar = getValorCargar(programa, op1);
 
     if(valor_cargar & 0x80000000){
-        negativo = 1;
+        if (negativo)
+                    negativo = 0;
+                else
+                    negativo = 1;
         valor_cargar = CambiarSigno(valor_cargar);
     }
 
-    if (tipo_op1 == 3){
-        if (programa->registros[(op1 & 0x1F0000) >> 16])
-            direccion_fisica = getDireccionFisica(*programa, programa->registros[(op1 & 0x1F0000) >> 16]+ (op1 & 0xFFFF));
-        else
-            direccion_fisica = getDireccionFisica(*programa,  0x10000 + (op1 & 0xFFFF));
-        SetearAccesoMemoria(programa, op1, 4, direccion_fisica);
-        programa->registros[MBR] = 0;
-        for (int i=0; i<4; i++){
-            programa->registros[MBR] += programa->memoria[direccion_fisica + 3 - i] << (i*8) ;
+    valor_cargar *= multiplicar;
+
+    if (negativo) {
+        valor_cargar = CambiarSigno(valor_cargar);
+    }
+
+    setOperando(programa,op1,valor_cargar);
+
+    ModificarCC(programa,valor_cargar);
+}
+
+void DIV(tipoMV *programa , uint32_t op1, uint32_t op2){
+    uint32_t valor_cargar;
+    uint32_t valor_original;
+    uint32_t dividir;
+    uint8_t negativo = 0;
+
+    dividir = getValorCargar(programa, op2);
+
+    if (valor_cargar != 0){
+
+        if(dividir & 0x80000000){
+            negativo = 1;
+            dividir= CambiarSigno(dividir);
         }
 
-        if (programa->registros[MBR] & 0x80000000){
+        valor_cargar = getValorCargar(programa, op1);
+        valor_original = valor_cargar;
+
+        if(valor_cargar & 0x80000000){
             if (negativo)
                     negativo = 0;
                 else
                     negativo = 1;
-            programa->registros[MBR] = CambiarSigno(programa->registros[MBR]);
-        }
-
-        programa->registros[MBR] *= valor_cargar;
-
-        if (negativo) {
-            programa->registros[MBR] = CambiarSigno(programa->registros[MBR]);
-        }
-
-        SetearAccesoMemoria(programa, op1, 4, direccion_fisica);
-        for (int i=0; i<4; i++){
-            programa->memoria[direccion_fisica + 3 - i] = ((programa->registros[MBR] & (0xFF << (i*8))) >> (i*8));
-        }
-        ModificarCC(programa,programa->registros[MBR]);
-    }
-    else {
-            if (programa->registros[op1 & 0x1F] & 0x80000000){
-                if (negativo)
-                    negativo = 0;
-                else
-                    negativo = 1;
-            programa->registros[op1 & 0x1F] = CambiarSigno(programa->registros[op1 & 0x1F]);
-            }
-
-            programa->registros[op1 & 0x1F] *= valor_cargar;
-
-            if (negativo){
-                programa->registros[op1 & 0x1F] = CambiarSigno(programa->registros[op1 & 0x1F]);
-            }
-            ModificarCC(programa,programa->registros[op1 & 0x1F]);
-    }
-}
-
-void DIV(tipoMV *programa , uint32_t op1, uint32_t op2){
-    uint8_t tipo_op1 = getTipoOperando(op1);
-    uint8_t tipo_op2 = getTipoOperando(op2);
-    uint8_t negativo = 0;
-    uint32_t direccion_fisica;
-    uint32_t valor_cargar;
-    uint32_t valor_original;
-
-    valor_cargar = getValorCargar(programa, op2, tipo_op2, 4);
-
-
-    if (valor_cargar != 0){
-
-        if(valor_cargar & 0x80000000){
-            negativo = 1;
             valor_cargar = CambiarSigno(valor_cargar);
         }
 
+        valor_cargar /= dividir;
 
-        if (tipo_op1 == 3){
-            if (programa->registros[(op1 & 0x1F0000) >> 16])
-                direccion_fisica = getDireccionFisica(*programa, programa->registros[(op1 & 0x1F0000) >> 16]+ (op1 & 0xFFFF));
-            else
-                direccion_fisica = getDireccionFisica(*programa,  0x10000 + (op1 & 0xFFFF));
-            SetearAccesoMemoria(programa, op1, 4, direccion_fisica);
-            programa->registros[MBR] = 0;
-
-            for (int i=0; i<4; i++){
-                programa->registros[MBR] += programa->memoria[direccion_fisica + 3 - i] << (i*8);
-            }
-
-            valor_original = programa->registros[MBR];
-
-            if (programa->registros[MBR] & 0x80000000){
-                if (negativo)
-                        negativo = 0;
-                    else
-                        negativo = 1;
-                programa->registros[MBR] = CambiarSigno(programa->registros[MBR]);
-            }
-
-
-            programa->registros[MBR] = programa->registros[MBR] / valor_cargar;
-
-            if (negativo) {
-                programa->registros[MBR] = CambiarSigno(programa->registros[MBR]);
-            }
-
-            SetearAccesoMemoria(programa, op1, 4, direccion_fisica);
-            for (int i=0; i<4; i++){
-                programa->memoria[direccion_fisica + 3 - i] = (programa->registros[MBR] & (0xFF << (i*8))) >> (i*8);
-            }
-            ModificarCC(programa,programa->registros[MBR]);
-            programa->registros[AC] = valor_original - (valor_cargar*programa->registros[MBR]);
+        if (negativo) {
+            valor_cargar = CambiarSigno(valor_cargar);
         }
-        else {
-                if (programa->registros[op1 & 0x1F] & 0x80000000){
-                    if (negativo)
-                        negativo = 0;
-                    else
-                        negativo = 1;
-                programa->registros[op1 & 0x1F] = CambiarSigno(programa->registros[op1 & 0x1F]);
-                }
 
-                valor_original = programa->registros[op1 & 0x1F];
+        setOperando(programa,op1,valor_cargar);
 
-                programa->registros[op1 & 0x1F] = programa->registros[op1 & 0x1F] / valor_cargar;
+        ModificarCC(programa,valor_cargar);
+        programa->registros[AC] = valor_original - (valor_cargar*dividir);
 
-                if (negativo){
-                    programa->registros[op1 & 0x1F] = CambiarSigno(programa->registros[op1 & 0x1F]);
-                }
-                ModificarCC(programa,programa->registros[op1 & 0x1F]);
-                programa->registros[AC] = valor_original - (valor_cargar*programa->registros[op1 & 0x1F]);
-        }
     }
     else {
         printf("ERROR: Division por 0\n");
         exit(1);
     }
-
 }
 
 void CMP(tipoMV *programa, uint32_t op1, uint32_t op2){
-    uint8_t tipo_op1 = getTipoOperando(op1);
-    uint8_t tipo_op2 = getTipoOperando(op2);
-    uint32_t direccion_fisica;
     uint32_t valor_cargar;
+    uint32_t restar;
 
-    valor_cargar = getValorCargar(programa, op2, tipo_op2, 4);
+    restar = getValorCargar(programa, op2);
+    valor_cargar = getValorCargar(programa, op1);
 
-    if (tipo_op1 == 3){
-        if (programa->registros[(op1 & 0x1F0000) >> 16])
-            direccion_fisica = getDireccionFisica(*programa, programa->registros[(op1 & 0x1F0000) >> 16]+ (op1 & 0xFFFF));
-        else
-            direccion_fisica = getDireccionFisica(*programa,  0x10000 + (op1 & 0xFFFF));
-        SetearAccesoMemoria(programa, op1, 4, direccion_fisica);
-        programa->registros[MBR] = 0;
-
-        for (int i=0; i<4; i++){
-                programa->registros[MBR] += (programa->memoria[direccion_fisica + 3 - i] << (i*8));
-        }
-
-        if (valor_cargar & 0x80000000)
-            ModificarCC(programa,programa->registros[MBR] + CambiarSigno(valor_cargar));
-        else
-            ModificarCC(programa,programa->registros[MBR] - valor_cargar);
-    }
-    else {
-            if (valor_cargar & 0x80000000)
-                ModificarCC(programa,programa->registros[op1 & 0x1F] + CambiarSigno(valor_cargar));
-            else
-                ModificarCC(programa,programa->registros[op1 & 0x1F] - valor_cargar);
-    }
+    if (restar & 0x80000000)
+        ModificarCC(programa,valor_cargar + CambiarSigno(restar));
+    else
+        ModificarCC(programa,valor_cargar - restar);
 }
 
 void SHL(tipoMV *programa, uint32_t op1, uint32_t op2){
-    uint8_t tipo_op1 = getTipoOperando(op1);
-    uint8_t tipo_op2 = getTipoOperando(op2);
-    uint32_t direccion_fisica;
     uint32_t valor_cargar;
+    uint32_t shift;
 
-    valor_cargar = getValorCargar(programa, op2, tipo_op2, 4);
+    shift = getValorCargar(programa, op2);
+    valor_cargar = getValorCargar(programa, op1);
 
-    if (tipo_op1 == 3){
-        if (programa->registros[(op1 & 0x1F0000) >> 16])
-            direccion_fisica = getDireccionFisica(*programa, programa->registros[(op1 & 0x1F0000) >> 16]+ (op1 & 0xFFFF));
-        else
-            direccion_fisica = getDireccionFisica(*programa,  0x10000 + (op1 & 0xFFFF));
-        SetearAccesoMemoria(programa, op1, 4, direccion_fisica);
-        programa->registros[MBR] = 0;
-          for (int i=0; i<4; i++){
-                programa->registros[MBR] += programa->memoria[direccion_fisica + 3 - i] << (i*8);
-        }
-;
-        programa->registros[MBR] = programa->registros[MBR] << valor_cargar;
+    valor_cargar = valor_cargar << shift;
 
-        SetearAccesoMemoria(programa, op1, 4, direccion_fisica);
-        for (int i=0; i<4; i++){
-                programa->memoria[direccion_fisica + 3 - i] = (programa->registros[MBR] & (0xFF << (i*8))) >> (i*8);
-        }
-        ModificarCC(programa,programa->registros[MBR]);
-    }
-    else {
-            programa->registros[op1 & 0x1F] = programa->registros[op1 & 0x1F] << valor_cargar;
-            ModificarCC(programa,programa->registros[op1 & 0x1F]);
-    }
+    setOperando(programa,op1,valor_cargar);
+
+    ModificarCC(programa,valor_cargar);
 }
 
 void SHR(tipoMV *programa, uint32_t op1, uint32_t op2){
-    uint8_t tipo_op1 = getTipoOperando(op1);
-    uint8_t tipo_op2 = getTipoOperando(op2);
-    uint32_t direccion_fisica;
     uint32_t valor_cargar;
+    uint32_t shift;
 
-    valor_cargar = getValorCargar(programa, op2, tipo_op2, 4);
+    shift = getValorCargar(programa, op2);
+    valor_cargar = getValorCargar(programa, op1);
 
-    if (tipo_op1 == 3){
-        if (programa->registros[(op1 & 0x1F0000) >> 16])
-            direccion_fisica = getDireccionFisica(*programa, programa->registros[(op1 & 0x1F0000) >> 16]+ (op1 & 0xFFFF));
-        else
-            direccion_fisica = getDireccionFisica(*programa,  0x10000 + (op1 & 0xFFFF));
-        SetearAccesoMemoria(programa, op1, 4, direccion_fisica);
-        programa->registros[MBR] = 0;
-        for (int i=0; i<4; i++){
-                programa->registros[MBR] += programa->memoria[direccion_fisica + 3 - i] << (i*8);
-        }
-        programa->registros[MBR] = programa->registros[MBR] >> valor_cargar;
+    valor_cargar = valor_cargar >> shift;
 
-        SetearAccesoMemoria(programa, op1, 4, direccion_fisica);
-        for (int i=0; i<4; i++){
-                programa->memoria[direccion_fisica + 3 -i] = (programa->registros[MBR] & (0xFF << (i*8))) >> (i*8);
-        }
-        ModificarCC(programa,programa->registros[MBR]);
-    }
-    else {
-            programa->registros[op1 & 0x1F] = programa->registros[op1 & 0x1F] >> valor_cargar;
-            ModificarCC(programa,programa->registros[op1 & 0x1F]);
-    }
+    setOperando(programa,op1,valor_cargar);
+
+    ModificarCC(programa,valor_cargar);
 }
 
 void SAR(tipoMV *programa, uint32_t op1, uint32_t op2){
-    uint8_t tipo_op1 = getTipoOperando(op1);
-    uint8_t tipo_op2 = getTipoOperando(op2);
-    uint32_t direccion_fisica;
     uint32_t valor_cargar;
+    uint32_t shift;
 
-    valor_cargar = getValorCargar(programa, op2, tipo_op2, 4);
+    shift = getValorCargar(programa, op2);
+    valor_cargar = getValorCargar(programa, op1);
 
-    if (tipo_op1 == 3){
-        if (programa->registros[(op1 & 0x1F0000) >> 16])
-            direccion_fisica = getDireccionFisica(*programa, programa->registros[(op1 & 0x1F0000) >> 16]+ (op1 & 0xFFFF));
-        else
-            direccion_fisica = getDireccionFisica(*programa,  0x10000 + (op1 & 0xFFFF));
-        SetearAccesoMemoria(programa, op1, 4, direccion_fisica);
-        programa->registros[MBR] = 0;
-        for (int i=0; i<4; i++){
-                programa->registros[MBR] += programa->memoria[direccion_fisica + 3 - i] << (i*8);
+    if (valor_cargar & 0x80000000)
+        for (int i=0;i<shift;i++){
+            valor_cargar = valor_cargar >> 1;
+            valor_cargar += (1 << 31);
         }
-        if (programa->registros[MBR] & 0x80000000)
-            for (int i=0;i<valor_cargar;i++){
-                programa->registros[MBR] = programa->registros[MBR] >> 1;
-                programa->registros[MBR] += (1 << 31);
-            }
-        else programa->registros[MBR] = programa->registros[MBR] >> valor_cargar;
+    else valor_cargar = valor_cargar >> shift;
 
-        SetearAccesoMemoria(programa, op1, 4, direccion_fisica);
-        for (int i=0; i<4; i++){
-                programa->memoria[direccion_fisica + 3 - i] = (programa->registros[MBR] & (0xFF << (i*8))) >> (i*8);
-        }
-        ModificarCC(programa,programa->registros[MBR]);
-    }
-    else {
-            if (programa->registros[op1 & 0x1F] & 0x80000000)
-                for (int i=0;i<valor_cargar;i++){
-                    programa->registros[op1 & 0x1F] = programa->registros[op1 & 0x1F] >> 1;
-                    programa->registros[op1 & 0x1F] += (1 << 31);
-                }
-            else programa->registros[op1 & 0x1F] = programa->registros[op1 & 0x1F] >> valor_cargar;
-            ModificarCC(programa,programa->registros[op1 & 0x1F]);
-    }
+    setOperando(programa,op1,valor_cargar);
+
+    ModificarCC(programa,valor_cargar);
 }
 
 void AND(tipoMV *programa, uint32_t op1, uint32_t op2){
-    uint8_t tipo_op1 = getTipoOperando(op1);
-    uint8_t tipo_op2 = getTipoOperando(op2);
-    uint32_t direccion_fisica;
     uint32_t valor_cargar;
+    uint32_t valor_and;
 
-    valor_cargar = getValorCargar(programa, op2, tipo_op2, 4);
+    valor_and = getValorCargar(programa, op2);
+    valor_cargar = getValorCargar(programa, op1);
 
-    if (tipo_op1 == 3){
-        if (programa->registros[(op1 & 0x1F0000) >> 16])
-            direccion_fisica = getDireccionFisica(*programa, programa->registros[(op1 & 0x1F0000) >> 16]+ (op1 & 0xFFFF));
-        else
-            direccion_fisica = getDireccionFisica(*programa,  0x10000 + (op1 & 0xFFFF));
-        SetearAccesoMemoria(programa, op1, 4, direccion_fisica);
-        programa->registros[MBR] = 0;
-        for (int i=0; i<4; i++){
-                programa->registros[MBR] += programa->memoria[direccion_fisica + 3 - i] << (i*8);
-        }
-        programa->registros[MBR] = programa->registros[MBR] & valor_cargar;
-        SetearAccesoMemoria(programa, op1, 4, direccion_fisica);
-        for (int i=0; i<4; i++){
-                programa->memoria[direccion_fisica + 3 - i] = (programa->registros[MBR] & (0xFF << (i*8))) >> (i*8);
-        }
-        ModificarCC(programa,programa->registros[MBR]);
-    }
-    else {
-            programa->registros[op1 & 0x1F] = programa->registros[op1 & 0x1F] & valor_cargar;
-            ModificarCC(programa,programa->registros[op1 & 0x1F]);
-    }
+    valor_cargar = valor_cargar & valor_and;
+
+    setOperando(programa,op1,valor_cargar);
+
+    ModificarCC(programa,valor_cargar);
 }
 
 void OR(tipoMV *programa, uint32_t op1, uint32_t op2){
-    uint8_t tipo_op1 = getTipoOperando(op1);
-    uint8_t tipo_op2 = getTipoOperando(op2);
-    uint32_t direccion_fisica;
     uint32_t valor_cargar;
+    uint32_t valor_or;
 
-    valor_cargar = getValorCargar(programa, op2, tipo_op2, 4);
+    valor_or = getValorCargar(programa, op2);
+    valor_cargar = getValorCargar(programa, op1);
 
-    if (tipo_op1 == 3){
-        if (programa->registros[(op1 & 0x1F0000) >> 16])
-            direccion_fisica = getDireccionFisica(*programa, programa->registros[(op1 & 0x1F0000) >> 16]+ (op1 & 0xFFFF));
-        else
-            direccion_fisica = getDireccionFisica(*programa,  0x10000 + (op1 & 0xFFFF));
-        SetearAccesoMemoria(programa, op1, 4, direccion_fisica);
-        programa->registros[MBR] = 0;
-        for (int i=0; i<4; i++){
-                programa->registros[MBR] += programa->memoria[direccion_fisica + 3 - i] << (i*8);
-        }
-        programa->registros[MBR] = programa->registros[MBR] | valor_cargar;
+    valor_cargar = valor_cargar | valor_or;
 
-        SetearAccesoMemoria(programa, op1, 4, direccion_fisica);
-        for (int i=0; i<4; i++){
-                programa->memoria[direccion_fisica + 3 - i] = (programa->registros[MBR] & (0xFF << (i*8))) >> (i*8);
-        }
-        ModificarCC(programa,programa->registros[MBR]);
-    }
-    else {
-            programa->registros[op1 & 0x1F] = programa->registros[op1 & 0x1F] | valor_cargar;
-            ModificarCC(programa,programa->registros[op1 & 0x1F]);
-    }
+    setOperando(programa,op1,valor_cargar);
+
+    ModificarCC(programa,valor_cargar);
 }
 
 void XOR(tipoMV *programa, uint32_t op1, uint32_t op2){
-    uint8_t tipo_op1 = getTipoOperando(op1);
-    uint8_t tipo_op2 = getTipoOperando(op2);
-    uint32_t direccion_fisica;
     uint32_t valor_cargar;
+    uint32_t valor_xor;
 
-    valor_cargar = getValorCargar(programa, op2, tipo_op2, 4);
+    valor_xor = getValorCargar(programa, op2);
+    valor_cargar = getValorCargar(programa, op1);
 
-    if (tipo_op1 == 3){
-        if (programa->registros[(op1 & 0x1F0000) >> 16])
-            direccion_fisica = getDireccionFisica(*programa, programa->registros[(op1 & 0x1F0000) >> 16]+ (op1 & 0xFFFF));
-        else
-            direccion_fisica = getDireccionFisica(*programa,  0x10000 + (op1 & 0xFFFF));
-        SetearAccesoMemoria(programa, op1, 4, direccion_fisica);
-        programa->registros[MBR] = 0;
-        for (int i=0; i<4; i++){
-                programa->registros[MBR] += programa->memoria[direccion_fisica + 3 - i] << (i*8);
-        }
-        programa->registros[MBR] = programa->registros[MBR] ^ valor_cargar;
+    valor_cargar = valor_cargar ^ valor_xor;
 
-        SetearAccesoMemoria(programa, op1, 3, direccion_fisica);
-        for (int i=0; i<4; i++){
-                programa->memoria[direccion_fisica + 3 - i] = (programa->registros[MBR] & (0xFF << (i*8))) >> (i*8);
-        }
-        ModificarCC(programa,programa->registros[MBR]);
-    }
-    else {
-            programa->registros[op1 & 0x1F] = programa->registros[op1 & 0x1F] ^ valor_cargar;
-            ModificarCC(programa,programa->registros[op1 & 0x1F]);
-    }
+    setOperando(programa,op1,valor_cargar);
+
+    ModificarCC(programa,valor_cargar);
 }
 
 void SWAP(tipoMV *programa, uint32_t op1, uint32_t op2){
-    uint8_t tipo_op1 = getTipoOperando(op1);
-    uint8_t tipo_op2 = getTipoOperando(op2);
-    uint32_t direccion_fisica;
     uint32_t valor_cargarOP1;
     uint32_t valor_cargarOP2;
 
-    valor_cargarOP1 = getValorCargar(programa, op2, tipo_op2, 4);
-    valor_cargarOP2 = getValorCargar(programa, op1, tipo_op1, 4);
+    valor_cargarOP1 = getValorCargar(programa, op2);
+    valor_cargarOP2 = getValorCargar(programa, op1);
 
-    if (tipo_op1 == 3){
-        if (programa->registros[(op1 & 0x1F0000) >> 16])
-            direccion_fisica = getDireccionFisica(*programa, programa->registros[(op1 & 0x1F0000) >> 16]+ (op1 & 0xFFFF));
-        else
-            direccion_fisica = getDireccionFisica(*programa,  0x10000 + (op1 & 0xFFFF));
-        programa->registros[MBR] = valor_cargarOP1;
-        SetearAccesoMemoria(programa, op1, 4, direccion_fisica);
-        for (int i=0; i<4; i++){
-                programa->memoria[direccion_fisica + 3 - i] = (programa->registros[MBR] & (0xFF << (i*8))) >> (i*8);
-        }
-    }
-    else {
-            programa->registros[op1 & 0x1F] = valor_cargarOP1;
-    }
-
-    if (tipo_op2 == 3){
-        if (programa->registros[(op1 & 0x1F0000) >> 16])
-            direccion_fisica = getDireccionFisica(*programa, programa->registros[(op2 & 0x1F0000) >> 16]+ (op2 & 0xFFFF));
-        else
-            direccion_fisica = getDireccionFisica(*programa,  0x10000 + (op2 & 0xFFFF));
-        programa->registros[MBR] = valor_cargarOP2;
-        SetearAccesoMemoria(programa, op2, 1, direccion_fisica);
-        for (int i=0; i<4; i++){
-                programa->memoria[direccion_fisica + 3 - i] = (programa->registros[MBR] & (0xFF << (i*8))) >> (i*8);
-        }
-    }
-    else {
-            programa->registros[op2 & 0x1F] = valor_cargarOP1;
-    }
+    setOperando(programa,op1,valor_cargarOP1);
+    setOperando(programa,op2,valor_cargarOP2);
 }
 
 void LDH(tipoMV *programa, uint32_t op1, uint32_t op2){
-    uint8_t tipo_op1 = getTipoOperando(op1);
-    uint8_t tipo_op2 = getTipoOperando(op2);
-    uint32_t direccion_fisica;
     uint32_t valor_cargar;
+    uint32_t valor_ldh;
 
-    valor_cargar = getValorCargar(programa, op2, tipo_op2, 4);
+    valor_ldh = getValorCargar(programa, op2);
+    valor_cargar = getValorCargar(programa, op1);
 
-    if (tipo_op1 == 3){
-        if (programa->registros[(op1 & 0x1F0000) >> 16])
-            direccion_fisica = getDireccionFisica(*programa, programa->registros[(op1 & 0x1F0000) >> 16]+ (op1 & 0xFFFF));
-        else
-            direccion_fisica = getDireccionFisica(*programa,  0x10000 + (op1 & 0xFFFF));
-        SetearAccesoMemoria(programa, op1, 2, direccion_fisica+2);
-        programa->registros[MBR] = valor_cargar;
-        SetearAccesoMemoria(programa, op1, 2, direccion_fisica+2);
-        for (int i=0; i<2; i++){
-                programa->memoria[direccion_fisica + 1 - i] = (programa->registros[MBR] & (0xFF << (i*8))) >> (i*8);
-        }
-    }
-    else programa->registros[op1 & 0x1F] = (programa->registros[op1 & 0x1F] & 0xFFFF) + (valor_cargar << 16);
+    valor_cargar = (valor_cargar & 0xFFFF) + (valor_ldh << 16);
+
+    setOperando(programa,op1,valor_cargar);
 }
 
 void LDL(tipoMV *programa, uint32_t op1, uint32_t op2){
-
-    uint8_t tipo_op1 = getTipoOperando(op1);
-    uint8_t tipo_op2 = getTipoOperando(op2);
-    uint32_t direccion_fisica;
     uint32_t valor_cargar;
+    uint32_t valor_ldh;
 
+    valor_ldh = getValorCargar(programa, op2);
+    valor_cargar = getValorCargar(programa, op1);
 
-    valor_cargar = getValorCargar(programa, op2, tipo_op2, 4);
+    valor_cargar = (valor_cargar & 0xFFFF0000) + valor_ldh;
 
-    if (tipo_op1 == 3){
-        if (programa->registros[(op1 & 0x1F0000) >> 16])
-            direccion_fisica = getDireccionFisica(*programa, programa->registros[(op1 & 0x1F0000) >> 16]+ (op1 & 0xFFFF));
-        else
-            direccion_fisica = getDireccionFisica(*programa,  0x10000 + (op1 & 0xFFFF));
-        SetearAccesoMemoria(programa, op1, 2, direccion_fisica);
-        programa->registros[MBR] = valor_cargar;
-        SetearAccesoMemoria(programa, op1, 2, direccion_fisica);
-        programa->memoria[direccion_fisica + 3] = programa->registros[MBR] & 0xFF;
-        programa->memoria[direccion_fisica + 2] = (programa->registros[MBR] >> 8) & 0xFF;
-    }
-    else programa->registros[op1 & 0x1F] = (programa->registros[op1 & 0x1F] & 0xFFFF0000) + valor_cargar;
+    setOperando(programa,op1,valor_cargar);
 }
 
 void RND(tipoMV *programa, uint32_t op1, uint32_t op2){
-    uint8_t tipo_op1 = getTipoOperando(op1);
-    uint8_t tipo_op2 = getTipoOperando(op2);
-    uint32_t direccion_fisica;
-    int32_t valor_cargar;
+    uint32_t valor_cargar;
+    uint32_t limite;
 
     srand(time(NULL));
 
-    valor_cargar = getValorCargar(programa, op2, tipo_op2, 4);
+    limite = getValorCargar(programa, op2);
+    valor_cargar = getValorCargar(programa, op1);
 
-    if (tipo_op1 == 3){
-        if (programa->registros[(op1 & 0x1F0000) >> 16])
-            direccion_fisica = getDireccionFisica(*programa, programa->registros[(op1 & 0x1F0000) >> 16]+ (op1 & 0xFFFF));
-        else
-            direccion_fisica = getDireccionFisica(*programa,  0x10000 + (op1 & 0xFFFF));
-        SetearAccesoMemoria(programa, op1, 4, direccion_fisica);
-        for (int i=0; i<4; i++){
-                programa->registros[MBR] += programa->memoria[direccion_fisica  + 3 - i] << (i*8);
-        }
-        programa->registros[MBR] = rand() % (valor_cargar + 1);
+    valor_cargar = rand() % (limite + 1);
 
-        SetearAccesoMemoria(programa, op1, 4, direccion_fisica);
-        for (int i=0; i<4; i++){
-                programa->memoria[direccion_fisica + 3 - i] = (programa->registros[MBR] & (0xFF << (i*8))) >> (i*8);
-        }
-        ModificarCC(programa,programa->registros[MBR]);
-    }
-    else {
-            programa->registros[op1 & 0x1F] = rand() % valor_cargar + 1;
-            ModificarCC(programa,programa->registros[op1 & 0x1F]);
-    }
+    setOperando(programa,op1,valor_cargar);
+
+    ModificarCC(programa,valor_cargar);
 }
 
 
@@ -788,39 +456,12 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
 }
 
 void JMP(tipoMV *programa, uint32_t op1, uint32_t op2){
+    uint32_t valor_cargar;
     programa->registros[OP1] = programa->registros[OP2];
     programa->registros[OP2] = 0;
 
-    op1 = programa->registros[OP1];
-    uint8_t tipo_op1 = getTipoOperando(op1);
-    uint32_t direccion_fisica;
-    uint32_t valor_cargar;
+    valor_cargar = getValorCargar(programa, op2);
 
-
-    if (tipo_op1 == 3){
-        if (programa->registros[(op1 & 0x1F0000) >> 16])
-            direccion_fisica = getDireccionFisica(*programa, programa->registros[(op1 & 0x1F0000) >> 16]+ (op1 & 0xFFFF));
-        else
-            direccion_fisica = getDireccionFisica(*programa,  0x10000 + (op1 & 0xFFFF));
-
-        SetearAccesoMemoria(programa, op1, 4, direccion_fisica);
-        programa->registros[MBR] = 0;
-        for (int i=0; i<4; i++){
-                programa->registros[MBR] += (programa->memoria[direccion_fisica - i] << (i*8));
-        }
-        valor_cargar = programa->registros[MBR] + 8;
-    }
-    else
-        if (tipo_op1 == 1)
-            valor_cargar = programa->registros[op1 & 0x1F];
-        else{
-            if (tipo_op1 == 2){
-                if (op1 & 0xFFFF)
-                    valor_cargar = (op1 & 0xFFFF);
-                else
-                    valor_cargar = 0;
-            }
-        }
     ModificarIP(programa, valor_cargar);
 }
 
@@ -861,33 +502,17 @@ void JNN(tipoMV *programa, uint32_t op1, uint32_t op2){
 }
 
 void NOT(tipoMV *programa, uint32_t op1, uint32_t op2){
+    uint32_t valor_cargar;
     programa->registros[OP1] = programa->registros[OP2];
     programa->registros[OP2] = 0;
 
-    op1 = programa->registros[OP1];
-    uint8_t tipo_op1 = getTipoOperando(op1);
-    uint32_t direccion_fisica;
+    valor_cargar = getValorCargar(programa, op2);
 
-    if (tipo_op1 == 3){
-        direccion_fisica = getDireccionFisica(*programa, programa->registros[(op1 & 0x1F0000) >> 16]+ (op1 & 0xFFFF));
-        SetearAccesoMemoria(programa, op1, 4, direccion_fisica);
-        programa->registros[MBR] = 0;
-        for (int i = 0; i < 4; i++) {
-            uint8_t byte_invertido = programa->memoria[direccion_fisica + i] ^ 0xFF;
-            programa->registros[MBR] |= ((uint32_t)byte_invertido) << (i * 8);
-        }
+    valor_cargar = valor_cargar ^ 0xFFFFFFFF;
 
-        SetearAccesoMemoria(programa, op1, 4, direccion_fisica);
+    setOperando(programa,op1,valor_cargar);
 
-        for (int i = 0; i < 4; i++) {
-            programa->memoria[direccion_fisica + i] = (programa->registros[MBR] >> (i * 8)) & 0xFF;
-        }
-        ModificarCC(programa, programa->registros[MBR]);
-    }
-    else {
-        programa->registros[op1 & 0x1F] = programa->registros[op1 & 0x1F] ^ 0xFFFFFFFF;
-        ModificarCC(programa,programa->registros[op1 & 0x1F]);
-    }
+    ModificarCC(programa,valor_cargar);
 }
 
 //Sin operandos

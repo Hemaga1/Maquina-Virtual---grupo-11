@@ -354,17 +354,19 @@ uint32_t PropagarSigno(uint32_t valor, uint32_t cant){
     return valor;
 }
 
-uint32_t getValorCargar(tipoMV *programa, uint32_t OP, uint8_t tipo_op, uint8_t bytes){
+uint32_t getValorCargar(tipoMV *programa, uint32_t OP){
     uint32_t direccion_fisica;
+    uint8_t tipo_op = getTipoOperando(OP);
+
     if (tipo_op == 3){
         if (programa->registros[(OP & 0x1F0000) >> 16])
             direccion_fisica = getDireccionFisica(*programa, programa->registros[(OP & 0x1F0000) >> 16]+ (OP & 0xFFFF));
         else
             direccion_fisica = getDireccionFisica(*programa,  0x10000 + (OP & 0xFFFF));
-        SetearAccesoMemoria(programa, OP, bytes, direccion_fisica);
+        SetearAccesoMemoria(programa, OP, 4, direccion_fisica);
         programa->registros[MBR] = 0;
-        for (int i=0; i<bytes; i++){
-            programa->registros[MBR] |= programa->memoria[direccion_fisica + bytes - 1 - i] << (i*8);
+        for (int i=0; i<4; i++){
+            programa->registros[MBR] |= programa->memoria[direccion_fisica + 3 - i] << (i*8);
         }
         return programa->registros[MBR];
     }
@@ -372,6 +374,27 @@ uint32_t getValorCargar(tipoMV *programa, uint32_t OP, uint8_t tipo_op, uint8_t 
         if (tipo_op == 1)
             return programa->registros[(OP & 0x1F)];
         else return PropagarSigno(((OP & 0xFFFF) << 16),16);
+}
+
+uint32_t setOperando(tipoMV *programa, uint32_t OP, uint32_t valor_cargar){
+    uint32_t direccion_fisica;
+    uint8_t tipo_op = getTipoOperando(OP);
+
+    if (tipo_op == 3){
+        if (programa->registros[(OP & 0x1F0000) >> 16])
+            direccion_fisica = getDireccionFisica(*programa, programa->registros[(OP & 0x1F0000) >> 16]+ (OP & 0xFFFF));
+        else
+            direccion_fisica = getDireccionFisica(*programa,  0x10000 + (OP & 0xFFFF));
+        SetearAccesoMemoria(programa, OP, 4, direccion_fisica);
+        programa->registros[MBR] = valor_cargar;
+
+        for (int i=0; i<4 ; i++){
+            programa->memoria[direccion_fisica + 3 - i] = (programa->registros[MBR] & (0xFF << (i*8))) >> (i*8);
+        }
+    }
+    else {
+            programa->registros[OP & 0x1F] = valor_cargar;
+    }
 }
 
 uint32_t StringABinario(char cadena[33]){

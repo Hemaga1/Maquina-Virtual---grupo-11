@@ -6,7 +6,7 @@
 #define TAMANIO_MEMORIA 16384
 #define NUM_REGISTROS 32
 
-#define VERSION 1
+//#define VERSION 1
 #define IDENTIFICADOR "VMX25"
 
 typedef enum
@@ -69,7 +69,7 @@ void MostrarBinario(uint32_t numero);
 uint32_t StringABinario(char cadena[33]);
 uint32_t PropagarSigno(uint32_t valor, uint32_t cant);
 uint32_t getValorCargar(tipoMV *programa, uint32_t OP);
-uint32_t setOperando(tipoMV *programa, uint32_t OP, uint32_t valor_cargar);
+void setOperando(tipoMV *programa, uint32_t OP, uint32_t valor_cargar);
 void ModificarCC(tipoMV *programa, uint32_t resultado);
 void SetearAccesoMemoria(tipoMV *programa, uint32_t OP, uint8_t bytes, uint32_t direccion_fisica);
 uint32_t CambiarSigno(uint32_t valor);

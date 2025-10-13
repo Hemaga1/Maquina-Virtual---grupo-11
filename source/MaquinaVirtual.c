@@ -56,7 +56,7 @@ int leerEncabezado(const char *filename, tipoMV *programa)
     else
     {
         fread(&(programa->version), 1, 1, arch);
-        if (programa->version == VERSION)
+        if (programa->version == 1)
         {
             fread(tamanios, sizeof(char), 2, arch);
             high = tamanios[0] & 0x0FF;
@@ -76,6 +76,13 @@ int leerEncabezado(const char *filename, tipoMV *programa)
             programa->TS[0][0] = 0;
             programa->TS[1][1] = TAMANIO_MEMORIA;
         }
+        else
+            if (programa->version == 2){
+
+            }
+            else {
+                //version no valida
+            }
 
         fclose(arch);
         return 1;
@@ -358,42 +365,76 @@ uint32_t getValorCargar(tipoMV *programa, uint32_t OP){
     uint32_t direccion_fisica;
     uint8_t tipo_op = getTipoOperando(OP);
 
+
     if (tipo_op == 3){
+        uint8_t cant_bytes = 4;
+        if (programa->version == 2)
+           cant_bytes -= (OP & 0xC00000);
         if (programa->registros[(OP & 0x1F0000) >> 16])
             direccion_fisica = getDireccionFisica(*programa, programa->registros[(OP & 0x1F0000) >> 16]+ (OP & 0xFFFF));
         else
             direccion_fisica = getDireccionFisica(*programa,  0x10000 + (OP & 0xFFFF));
-        SetearAccesoMemoria(programa, OP, 4, direccion_fisica);
+        SetearAccesoMemoria(programa, OP, cant_bytes, direccion_fisica);
         programa->registros[MBR] = 0;
-        for (int i=0; i<4; i++){
-            programa->registros[MBR] |= programa->memoria[direccion_fisica + 3 - i] << (i*8);
+        for (int i=0; i<cant_bytes; i++){
+            programa->registros[MBR] |= programa->memoria[direccion_fisica + cant_bytes - 1 - i] << (i*8);
         }
         return programa->registros[MBR];
     }
     else
-        if (tipo_op == 1)
-            return programa->registros[(OP & 0x1F)];
+        if (tipo_op == 1){
+            if (programa->version == 2){
+                uint32_t res;
+                switch (OP & 0xC0){
+                    case 0b00: res = programa->registros[OP & 0x1F];
+                        break;
+                    case 0b01: res = programa->registros[OP & 0x1F] & 0xFF;
+                        break;
+                    case 0b10: res = programa->registros[OP & 0x1F] & 0xFF00;
+                        break;
+                    case 0b11: res = programa->registros[OP & 0x1F] & 0xFFFF;
+                        break;
+                }
+                return res;
+            }
+            else return programa->registros[(OP & 0x1F)];
+        }
         else return PropagarSigno(((OP & 0xFFFF) << 16),16);
 }
 
-uint32_t setOperando(tipoMV *programa, uint32_t OP, uint32_t valor_cargar){
+void setOperando(tipoMV *programa, uint32_t OP, uint32_t valor_cargar){
     uint32_t direccion_fisica;
     uint8_t tipo_op = getTipoOperando(OP);
 
     if (tipo_op == 3){
+        uint8_t cant_bytes = 4;
+        if (programa->version == 2)
+           cant_bytes -= (OP & 0xC00000);
         if (programa->registros[(OP & 0x1F0000) >> 16])
             direccion_fisica = getDireccionFisica(*programa, programa->registros[(OP & 0x1F0000) >> 16]+ (OP & 0xFFFF));
         else
             direccion_fisica = getDireccionFisica(*programa,  0x10000 + (OP & 0xFFFF));
-        SetearAccesoMemoria(programa, OP, 4, direccion_fisica);
+        SetearAccesoMemoria(programa, OP, cant_bytes, direccion_fisica);
         programa->registros[MBR] = valor_cargar;
 
-        for (int i=0; i<4 ; i++){
-            programa->memoria[direccion_fisica + 3 - i] = (programa->registros[MBR] & (0xFF << (i*8))) >> (i*8);
+        for (int i=0; i<cant_bytes ; i++){
+            programa->memoria[direccion_fisica + cant_bytes - 1 - i] = (programa->registros[MBR] & (0xFF << (i*8))) >> (i*8);
         }
     }
     else {
-            programa->registros[OP & 0x1F] = valor_cargar;
+        if (programa->version == 2){
+            switch (OP & 0xC0){
+                case 0b00: programa->registros[OP & 0x1F] = valor_cargar;
+                    break;
+                case 0b01: programa->registros[OP & 0x1F] = (programa->registros[OP & 0x1F] & 0xFFFFFF00) + (valor_cargar & 0xFF);
+                    break;
+                case 0b10: programa->registros[OP & 0x1F] = (programa->registros[OP & 0x1F] & 0xFFFF00FF) + (valor_cargar & 0xFF00);
+                    break;
+                case 0b11: programa->registros[OP & 0x1F] = (programa->registros[OP & 0x1F] & 0xFFFF0000) + (valor_cargar & 0xFFFF);
+                    break;
+            }
+        }
+        else programa->registros[OP & 0x1F] = valor_cargar;
     }
 }
 

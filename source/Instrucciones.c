@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 #include <ctype.h>
 #include <time.h>
 
@@ -166,7 +167,7 @@ void DIV(tipoMV *programa , uint32_t op1, uint32_t op2){
 
     dividir = getValorCargar(programa, op2);
 
-    if (valor_cargar != 0){
+    if (dividir != 0){
 
         if(dividir & 0x80000000){
             negativo = 1;
@@ -366,7 +367,7 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
     programa->registros[MBR] = 0;
 
 
-    if (programa->registros[OP1] & 1){
+    if ((programa->registros[OP1] & 0xFFFF) == 1){
 
         for (int i=0;i<(programa->registros[ECX] & 0xFFFF);i++){
 
@@ -401,9 +402,10 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
             }
             direccion_fisica += ((programa->registros[ECX] & 0xFFFF0000) >> 16);
         }
-
+        printf("\n");
     }
-    else {
+    else
+    if ((programa->registros[OP1] & 0xFFFF) == 2){
         for (int i=0; i<(programa->registros[ECX] & 0xFFFF); i++){
 
             formato = programa->registros[EAX];
@@ -424,9 +426,9 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
                 if (formato & 0x10)
                     switch (k){
                         case 0: if (programa->registros[MBR] & 0x80000000)
-                                    printf("%d\n",(int32_t)programa->registros[MBR]);
+                                    printf("%d ",(int32_t)programa->registros[MBR]);
                                 else
-                                    printf("%d\n",(int32_t)programa->registros[MBR]);
+                                    printf("%d ",(int32_t)programa->registros[MBR]);
                                 break;
                         case 1:
                                 for (int g=((programa->registros[ECX] & 0xFFFF0000) >> 16)-1; g>-1; g--){
@@ -452,6 +454,33 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
 
             direccion_fisica += ((programa->registros[ECX] & 0xFFFF0000) >> 16);
         }
+    }
+    else
+    if ((programa->registros[OP1] & 0xFFFF) == 3) {
+        char cadena[programa->registros[ECX] + 1];
+        scanf("%s",cadena);
+        //plantear como se carga el MBR
+        int i;
+        for (i=0; i<programa->registros[ECX]; i++){
+            programa->memoria[direccion_fisica + i] = cadena[i];
+        }
+        programa->memoria[direccion_fisica + i] = '\0';
+    }
+    if ((programa->registros[OP1] & 0xFFFF) == 4) {
+        int i=0;
+        //plantear como se carga el MBR
+        char caracter = ' ';
+        while (caracter != '\0'){
+            caracter = programa->memoria[direccion_fisica + i];
+            printf("%c",caracter);
+        }
+    }
+    else
+    if ((programa->registros[OP1] & 0xFFFF) == 7){
+        system("cls");
+    }
+    else {
+        //BREAKPOINT
     }
 }
 

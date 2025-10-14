@@ -22,6 +22,10 @@ typedef enum
     OP1 = 5,
     OP2 = 6,
 
+    // Pila
+    SP = 7,
+    BP = 8,
+
     // Registros de proposito general
     EAX = 10,
     EBX = 11,
@@ -41,6 +45,7 @@ typedef enum
     SS = 29,
     KS = 30,
     PS = 31
+
 } t_registro;
 
 typedef struct MV
@@ -92,6 +97,7 @@ void ModificarCC(tipoMV *programa, uint32_t resultado);
 void SetearAccesoMemoria(tipoMV *programa, uint32_t OP, uint8_t bytes, uint32_t direccion_fisica);
 uint32_t CambiarSigno(uint32_t valor);
 void ModificarIP(tipoMV *programa, uint32_t valor);
+void pushearValor(tipoMV *programa, uint32_t valor);
 
 
 #endif // MAQUINAVIRTUAL_H_INCLUDED

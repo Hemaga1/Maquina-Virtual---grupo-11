@@ -204,7 +204,7 @@ void iniciarTablaSegmentos(tipoMV *mv, unsigned int sizes[], unsigned short int 
     } 
 
     //  Luego los demás (CS, DS, ES, SS)
-    for (int i = 0; i < cantSegments - 1; i++) {
+    for (int i = 0; i < cantSegments - 2; i++) {
         if (sizes[i] > 0) {
             mv->TS[indiceTS][0] = base; // tamaño
             mv->TS[indiceTS][1] = sizes[i];     // base acumulada

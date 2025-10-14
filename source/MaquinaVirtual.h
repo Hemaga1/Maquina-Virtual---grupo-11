@@ -3,7 +3,7 @@
 
 
 #include <stdint.h>
-#define TAMANIO_MEMORIA 16384
+// #define TAMANIO_MEMORIA 16384
 #define NUM_REGISTROS 32
 
 //#define VERSION 1
@@ -44,17 +44,32 @@ typedef enum
     ES = 28,
     SS = 29,
     KS = 30,
-    PS = 31,
+    PS = 31
+
 } t_registro;
 
 typedef struct MV
 {
-    uint8_t memoria[TAMANIO_MEMORIA];
+    uint8_t *memoria;
     uint32_t registros[NUM_REGISTROS];
-    uint16_t TS[2][2];
+    uint16_t TS[8][2];
+    uint16_t tamanioMemoria;
     char *nombreVMX;
     char version;
 } tipoMV;
+
+
+
+typedef struct Tparametros
+{
+    char *vmxfile;
+    char *vmifile;
+    int disassembler;
+    int tamanioMemoria;
+    int argc;
+    char **constantes;
+} Tparametros;
+
 
 typedef enum
 {

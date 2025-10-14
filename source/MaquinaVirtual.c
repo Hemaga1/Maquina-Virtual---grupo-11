@@ -6,37 +6,95 @@
 #include "maquinaVirtual.h"
 #include "Instrucciones.h"
 
-
 int main(int argc, char *argv[])
 {
     tipoMV mv;
-    // Verifico que se haya ingresado el nombre del archivo
-    if (argc >= 2)
-    {
-        if (leerEncabezado(argv[1], &mv)) {
-            if (argc == 3 && strcmp(argv[2], "-d") == 0)
-                Disassembler(mv);
-            InicializarRegistros(mv.registros);
-            //pushearValor(&mv,0xFFFFFFFF);
-            ejecutar_maquina(&mv);
-        }
+    Tparametros parametros;
+
+    leerParametros(argc, argv, &parametros);
+
+    mv.tamanioMemoria = parametros.tamanioMemoria;
+    crearParamSegment(&mv, &parametros);
+
+    if (parametros.disassembler)
+        Disassembler(mv);
+    
+    if (parametros.vmxfile)
+    { // Si hay .vmx lo leo
+        leerVMX(&mv, parametros.vmxfile);
+        if (parametros.vmifile) // Si tambien habia .vmi genero la imagen
+            escribirVMI(&mv, parametros.vmifile);
     }
+    else if (parametros.vmifile) // Si no habia .vmx pero si .vmi lo leo para ejecutar la imagen
+        leerVMI(&mv, parametros.vmifile);
     else
     {
-        printf("No se ha ingresado el nombre del archivo\n");
+        printf("No se ingreso el archivo .vmx o .vmi\n");
         return 1;
     }
-
+    ejecutar_maquina(&mv);
     return 0;
 }
 
-int leerEncabezado(const char *filename, tipoMV *programa)
+void leerParametros(int argc, char *argv[], Tparametros *parametros) {
+    
+    parametros->tamanioMemoria = 16 * 1024;  
+    parametros->disassembler = 0;
+    parametros->argc = 0;
+    parametros->vmxfile = NULL;
+    parametros->vmifile = NULL;
+
+    for (int i = 1; i < argc; i++) {
+        if (strstr(argv[i], ".vmx")) {
+            parametros->vmxfile = argv[i];
+        } else if (strstr(argv[i], ".vmi")) {
+            parametros->vmifile = argv[i];
+        } else if (strncmp(argv[i], "m=", 2) == 0) {
+            parametros->tamanioMemoria = atoi(argv[i] + 2) * 1024;  
+        } else if (strcmp(argv[i], "-d") == 0) {
+            parametros->disassembler = 1;
+        } else if (strcmp(argv[i], "-p") == 0) {
+            for (int j = i + 1; j < argc; j++) {
+                parametros->constantes[parametros->argc++] = argv[j];
+            }
+            break;
+        } else {
+            printf("Argumento desconocido: %s\n", argv[i]);
+        }
+    }
+}
+
+
+void crearParamSegment(tipoMV *mv, Tparametros *parametros) {
+    unsigned int base = 0;  
+    unsigned int offset = 0;
+
+    if (parametros->argc == 0) {
+        mv->registros[PS] = -1;
+        return;
+    }
+
+    // Copiar los strings uno detrás del otro
+    for (int i = 0; i < parametros->argc; i++) {
+        int len = strlen(parametros->constantes[i]) + 1;  
+        memcpy(&mv->memoria[offset], parametros->constantes[i], len);
+        offset += len;
+    }
+    // Configurar el segmento en la tabla
+    mv->TS[0][0] = base;
+    mv->TS[0][1] = offset;
+
+    // Registrar el segmento PS
+    mv->registros[PS] = base;
+}
+
+int leerVMX(const char *filename, tipoMV *mv)
 {
     FILE *arch = fopen(filename, "rb");
 
     char tamanios[2];
     short high, low;
-    short tamanioCodigo;
+    short tamanioCS;
 
     if (!arch)
     {
@@ -50,45 +108,112 @@ int leerEncabezado(const char *filename, tipoMV *programa)
     // Verificar que el identificador sea correcto
     if (strcmp(id, IDENTIFICADOR) != 0)
     {
-        fprintf(stderr, "Archivo no valido: identificador incorrecto (%s)\n", programa->nombreVMX);
+        fprintf(stderr, "Archivo no valido: identificador incorrecto (%s)\n", mv->nombreVMX);
         fclose(arch);
         return 0;
     }
     else
     {
-        fread(&(programa->version), 1, 1, arch);
-        if (programa->version == 1)
+        fread(&(mv->version), 1, 1, arch);
+        if (mv->version == 1)
         {
             fread(tamanios, sizeof(char), 2, arch);
             high = tamanios[0] & 0x0FF;
             low = tamanios[1] & 0x0FF;
-            tamanioCodigo = ((high << 8) | low);
+            tamanioCS = ((high << 8) | low);
 
-            if (tamanioCodigo > TAMANIO_MEMORIA)
+            mv->registros[CS] = 0x0000;
+            mv->registros[PS] = -1;
+            mv->registros[KS] = -1;
+            mv->registros[ES] = -1;
+            mv->registros[SS] = -1;
+
+            if (tamanioCS > mv->tamanioMemoria)
             {
                 fclose(arch);
                 printf("Error: Tamanio de code segment excede la memoria de la maquina virtual\n");
                 return 0;
             }
 
-            fread(programa->memoria, 1, tamanioCodigo, arch);
+            fread(mv->memoria, 1, tamanioCS, arch);
 
-            programa->TS[0][1] = programa->TS[1][0] = tamanioCodigo;
-            programa->TS[0][0] = 0;
-            programa->TS[1][1] = TAMANIO_MEMORIA;
+            mv->TS[0][1] = mv->TS[1][0] = tamanioCS;
+            mv->TS[0][0] = 0;
+            mv->TS[1][1] = mv->tamanioMemoria;
         }
-        else
-            if (programa->version == 2){
+        else if (mv->version == 2){
+            fread(tamanios, sizeof(char), 2, arch);
+            high = tamanios[0] & 0x0FF;
+            low = tamanios[1] & 0x0FF;
+            tamanioCS = ((high << 8) | low);
 
+            // hacer un for para leer los tamanios, asignarlos a un vector de sizes y con eso crear la tabla de segmentos
+            if (fread(tamanios, sizeof(char), 2, arch) != 2) {
+                printf("ERROR: no se pudo leer tamaño de segmento de datos\n");
+                fclose(arch);
+                exit(1);
             }
-            else {
-                //version no valida
+            unsigned int tamanioDS = (tamanios[0] << 8) | tamanios[1];
+
+            if (fread(tamanios, sizeof(char), 2, arch) != 2) {
+                printf("ERROR: no se pudo leer tamaño de segmento extra\n");
+                fclose(arch);
+                exit(1);
             }
+            unsigned int tamanioES = (tamanios[0] << 8) | tamanios[1];
+
+            if (fread(tamanios, sizeof(char), 2, arch) != 2) {
+                printf("ERROR: no se pudo leer tamaño de segmento de stack\n");
+                fclose(arch);
+                exit(1);
+            }
+            unsigned int tamanioSS = (tamanios[0] << 8) | tamanios[1];
+
+            if (fread(tamanios, sizeof(char), 2, arch) != 2) {
+                fprintf(stderr, "ERROR: no se pudo leer tamaño de segmento de constantes \n");
+                fclose(arch);
+                exit(1);
+            }
+            unsigned int tamanioKS = (tamanios[0] << 8) | tamanios[1];
+
+            if (tamanioCS + tamanioDS + tamanioES + tamanioSS + tamanioKS > mv->tamanioMemoria) {
+                printf("Error: El programa es demasiado grande para la memoria asignada.\n");
+                fclose(arch);
+                exit(1);
+            }
+
+            unsigned char offsetEntrypoint[2];
+            if (fread(offsetEntrypoint, sizeof(char), 2, arch) != 2) {
+                printf("ERROR: no se pudo leer el entry point\n");
+                exit(1);
+            }
+            unsigned int entryPoint = (offsetEntrypoint[0] << 8) | offsetEntrypoint[1];
+            // inicializo registros 
+        }
+        else {
+            printf("ERROR: versión de archivo incorrecta (%d)\n", mv->version);
+            exit(1);
+        }
 
         fclose(arch);
         return 1;
     }
 }
+
+// void iniciarTablaSegmentos(tipoMV *programa, unsigned short int sizes[7], unsigned short int cantSegments) {
+//     int j = 0; 
+//     for (int i = 0; i < cantSegments; i++) {
+//         if (sizes[i] != 0) {
+//             programa->TS[i][0] = sizes[i];
+//             if (j == 0)
+//                 programa->TS[i][1] = 0;
+//             else
+//                 programa->TS[i][1] = programa->TS[i - 1][1] + programa->TS[i - 1][0];
+//             j++;
+//         }
+//     }
+// }
+
 
 
 void Disassembler(tipoMV programa)

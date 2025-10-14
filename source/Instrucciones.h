@@ -35,6 +35,11 @@ void JNP(tipoMV *programa, uint32_t op1, uint32_t op2);
 void JNN(tipoMV *programa, uint32_t op1, uint32_t op2);
 void NOT(tipoMV *programa, uint32_t op1, uint32_t op2);
 void STOP(tipoMV *programa, uint32_t op1, uint32_t op2);
+void PUSH(tipoMV *programa, uint32_t op1, uint32_t op2);
+void POP(tipoMV *programa, uint32_t op1, uint32_t op2);
+void CALL(tipoMV *programa, uint32_t op1, uint32_t op2);
+void RET(tipoMV *programa, uint32_t op1, uint32_t op2);
+
 
 
 #endif // INSTRUCCIONES_H_INCLUDED

@@ -17,6 +17,7 @@ int main(int argc, char *argv[])
             if (argc == 3 && strcmp(argv[2], "-d") == 0)
                 Disassembler(mv);
             InicializarRegistros(mv.registros);
+            //pushearValor(&mv,0xFFFFFFFF);
             ejecutar_maquina(&mv);
         }
     }
@@ -176,11 +177,22 @@ void Disassembler(tipoMV programa)
 }
 
 void PrintOperando(uint32_t op){
+    char registro[4];
     uint32_t valor;
     switch (op >> 24) {
                 case 0:
                     break;
-                case 1: printf("%s",NombreRegistro[op & 0x1F]);
+                case 1: strcpy(registro,NombreRegistro[op & 0x1F]);
+                        switch (op & 0xC0){
+                            case 0x00: printf("%s",registro);
+                                break;
+                            case 0x01: printf("%cL",registro[1]);
+                                break;
+                            case 0x10: printf("%cH",registro[1]);
+                                break;
+                            case 0x11: printf("%cX",registro[1]);
+                                break;
+                        }
                     break;
                 case 2: if (op & 0x8000){
                             valor = op & 0xFFFF;
@@ -189,7 +201,16 @@ void PrintOperando(uint32_t op){
                         }
                         else printf("%d",op & 0xFFFF);
                     break;
-                case 3: printf("[");
+                case 3: switch (op & 0xC00000){
+                            case 0b00: printf("l");
+                                break;
+                            case 0b10: printf("w");
+                                break;
+                            case 0b11: printf("b");
+                                break;
+                        }
+
+                        printf("[");
                         printf("%s", NombreRegistro[(op & 0x1F0000) >> 16]);
                         if ((op & 0xFFFF) != 0){
                             if (op & 0x8000){
@@ -345,7 +366,7 @@ void ModificarCC(tipoMV *programa, uint32_t resultado){
 
 void SetearAccesoMemoria(tipoMV *programa, uint32_t OP, uint8_t bytes, uint32_t direccion_fisica){
     programa->registros[LAR] = programa->registros[(OP & 0x1F0000) >> 16] + (OP & 0xFFFF);
-    programa->registros[MAR] = (programa->registros[MAR] & 0xFFFF0000) + direccion_fisica;
+    programa->registros[MAR] = direccion_fisica;
     programa->registros[MAR] = (programa->registros[MAR] & 0xFFFF) + (bytes << 16);
 }
 
@@ -460,6 +481,28 @@ void MostrarBinario(uint32_t numero){
             printf("1");
         else
             printf("0");
+    }
+}
+
+void pushearValor(tipoMV *programa, uint32_t valor){
+    uint32_t direccion_fisica;
+
+    programa->registros[SP] -= 4;
+    if (programa->registros[SP] < programa->registros[SS]){
+        printf("STACK OVERFLOW\n");
+        exit(1);
+    }
+    else {
+        direccion_fisica = getDireccionFisica(*programa,  programa->registros[SP]);
+
+        programa->registros[LAR] = programa->registros[SP];
+        programa->registros[MAR] = direccion_fisica;
+        programa->registros[MAR] = (programa->registros[MAR] & 0xFFFF) + (4 << 16);
+        programa->registros[MBR] = valor;
+
+        for (int i=0; i<4 ; i++){
+            programa->memoria[direccion_fisica + 3 - i] = (programa->registros[MBR] & (0xFF << (i*8))) >> (i*8);
+        }
     }
 }
 

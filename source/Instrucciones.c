@@ -21,10 +21,10 @@ void inicioVectorOper(funcion operacion[]) {
     // Posiciones no utilizadas (instrucciones invalidas)
     operacion[9]  = NULL;
     operacion[10] = NULL;
-    operacion[11] = NULL;
-    operacion[12] = NULL;
-    operacion[13] = NULL;
-    operacion[14] = NULL;
+    operacion[11] = &PUSH;
+    operacion[12] = &POP;
+    operacion[13] = &CALL;
+    operacion[14] = &RET;
 
     operacion[15] = &STOP;
 
@@ -60,10 +60,10 @@ const char *Mnemonicos[32] = {
 
     [9]  = "Codigo de instruccion Invalido",
     [10] = "Codigo de instruccion Invalido",
-    [11] = "Codigo de instruccion Invalido",
-    [12] = "Codigo de instruccion Invalido",
-    [13] = "Codigo de instruccion Invalido",
-    [14] = "Codigo de instruccion Invalido",
+    [11] = "PUSH",
+    [12] = "POP",
+    [13] = "CALL",
+    [14] = "RET",
 
     [15] = "STOP",
 
@@ -542,6 +542,86 @@ void NOT(tipoMV *programa, uint32_t op1, uint32_t op2){
     setOperando(programa,op1,valor_cargar);
 
     ModificarCC(programa,valor_cargar);
+}
+
+void PUSH(tipoMV *programa, uint32_t op1, uint32_t op2){
+    uint32_t valor_cargar;
+    uint32_t direccion_fisica;
+    programa->registros[OP1] = programa->registros[OP2];
+    programa->registros[OP2] = 0;
+
+    programa->registros[SP] -= 4;
+    if (programa->registros[SP] < programa->registros[SS]){
+        printf("STACK OVERFLOW\n");
+        exit(1);
+    }
+    else {
+        valor_cargar = getValorCargar(programa, op2);
+        valor_cargar = PropagarSigno((valor_cargar << 16),16);
+        direccion_fisica = getDireccionFisica(*programa,  programa->registros[SP]);
+
+        programa->registros[LAR] = programa->registros[SP];
+        programa->registros[MAR] = direccion_fisica;
+        programa->registros[MAR] = (programa->registros[MAR] & 0xFFFF) + (4 << 16);
+        programa->registros[MBR] = valor_cargar;
+
+        for (int i=0; i<4 ; i++){
+            programa->memoria[direccion_fisica + 3 - i] = (programa->registros[MBR] & (0xFF << (i*8))) >> (i*8);
+        }
+    }
+}
+
+void POP(tipoMV *programa, uint32_t op1, uint32_t op2){
+    uint32_t direccion_fisica;
+    programa->registros[OP1] = programa->registros[OP2];
+    programa->registros[OP2] = 0;
+
+    direccion_fisica = getDireccionFisica(*programa,  programa->registros[SP]);
+
+    programa->registros[MBR] = 0;
+    for (int i=0; i<4; i++){
+        programa->registros[MBR] |= programa->memoria[direccion_fisica + 3 - i] << (i*8);
+    }
+
+    setOperando(programa,op2,programa->registros[MBR]);
+
+    programa->registros[SP] += 4;
+
+    /*
+    if (programa->registros[SP] > tamaño de SP){
+        printf("STACK UNDERFLOW\n");
+        exit(1);
+    }*/
+}
+
+void CALL(tipoMV *programa, uint32_t op1, uint32_t op2){
+
+    pushearValor(programa,programa->registros[IP]);
+
+    JMP(programa,op1,op2);
+}
+
+void RET(tipoMV *programa, uint32_t op1, uint32_t op2){
+    uint32_t direccion_fisica;
+    programa->registros[OP1] = programa->registros[OP2];
+    programa->registros[OP2] = 0;
+
+    direccion_fisica = getDireccionFisica(*programa,  programa->registros[SP]);
+
+    programa->registros[MBR] = 0;
+    for (int i=0; i<4; i++){
+        programa->registros[MBR] |= programa->memoria[direccion_fisica + 3 - i] << (i*8);
+    }
+
+    programa->registros[IP] = programa->registros[MBR];
+
+    programa->registros[SP] += 4;
+
+    /*
+    if (programa->registros[SP] > tamaño de SP){
+        printf("STACK UNDERFLOW\n");
+        exit(1);
+    }*/
 }
 
 //Sin operandos

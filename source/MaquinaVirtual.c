@@ -142,52 +142,37 @@ int leerVMX(const char *filename, tipoMV *mv)
             mv->TS[1][1] = mv->tamanioMemoria;
         }
         else if (mv->version == 2){
+
             fread(tamanios, sizeof(char), 2, arch);
             high = tamanios[0] & 0x0FF;
             low = tamanios[1] & 0x0FF;
             tamanioCS = ((high << 8) | low);
 
-            // hacer un for para leer los tamanios, asignarlos a un vector de sizes y con eso crear la tabla de segmentos
-            if (fread(tamanios, sizeof(char), 2, arch) != 2) {
-                printf("ERROR: no se pudo leer tamaño de segmento de datos\n");
-                fclose(arch);
-                exit(1);
-            }
-            unsigned int tamanioDS = (tamanios[0] << 8) | tamanios[1];
+            unsigned int tamaniosSeg[5]; // CS, DS, ES, SS, KS
 
-            if (fread(tamanios, sizeof(char), 2, arch) != 2) {
-                printf("ERROR: no se pudo leer tamaño de segmento extra\n");
-                fclose(arch);
-                exit(1);
-            }
-            unsigned int tamanioES = (tamanios[0] << 8) | tamanios[1];
-
-            if (fread(tamanios, sizeof(char), 2, arch) != 2) {
-                printf("ERROR: no se pudo leer tamaño de segmento de stack\n");
-                fclose(arch);
-                exit(1);
-            }
-            unsigned int tamanioSS = (tamanios[0] << 8) | tamanios[1];
-
-            if (fread(tamanios, sizeof(char), 2, arch) != 2) {
-                fprintf(stderr, "ERROR: no se pudo leer tamaño de segmento de constantes \n");
-                fclose(arch);
-                exit(1);
-            }
-            unsigned int tamanioKS = (tamanios[0] << 8) | tamanios[1];
-
-            if (tamanioCS + tamanioDS + tamanioES + tamanioSS + tamanioKS > mv->tamanioMemoria) {
-                printf("Error: El programa es demasiado grande para la memoria asignada.\n");
-                fclose(arch);
-                exit(1);
+            for (int i = 0; i < 5; i++)
+            {
+                unsigned char buffer[2];
+                if (fread(buffer, sizeof(char), 2, arch) != 2)
+                {
+                    fprintf(stderr, "ERROR: no se pudo leer tamaño de segmento\n");
+                    fclose(arch);
+                    exit(1);
+                }
+                tamaniosSeg[i] = (buffer[0] << 8) | buffer[1];
             }
 
-            unsigned char offsetEntrypoint[2];
-            if (fread(offsetEntrypoint, sizeof(char), 2, arch) != 2) {
+            iniciarTablaSegmentos(mv, tamaniosSeg, 5);
+
+            unsigned char entryPoint[2];
+            if (fread(entryPoint, sizeof(char), 2, arch) != 2) {
                 printf("ERROR: no se pudo leer el entry point\n");
                 exit(1);
             }
-            unsigned int entryPoint = (offsetEntrypoint[0] << 8) | offsetEntrypoint[1];
+            unsigned int tamanioEntryPoint = (entryPoint[0] << 8) | entryPoint[1];
+
+            
+
             // inicializo registros 
         }
         else {
@@ -200,20 +185,34 @@ int leerVMX(const char *filename, tipoMV *mv)
     }
 }
 
-// void iniciarTablaSegmentos(tipoMV *programa, unsigned short int sizes[7], unsigned short int cantSegments) {
-//     int j = 0; 
-//     for (int i = 0; i < cantSegments; i++) {
-//         if (sizes[i] != 0) {
-//             programa->TS[i][0] = sizes[i];
-//             if (j == 0)
-//                 programa->TS[i][1] = 0;
-//             else
-//                 programa->TS[i][1] = programa->TS[i - 1][1] + programa->TS[i - 1][0];
-//             j++;
-//         }
-//     }
-// }
+void iniciarTablaSegmentos(tipoMV *mv, unsigned int sizes[], unsigned short int cantSegments) {
+    // sizes = {CS, DS, ES, SS, KS}
+    unsigned int base = 0;
+    int indiceTS = 0;
 
+    if(mv->registros[PS] != -1) {
+        base += mv->TS[0][1];
+        indiceTS += 1;
+    }
+
+    //  Primero el segmento de constantes si existe
+    if(sizes[cantSegments - 1] > 0) {
+        mv->TS[indiceTS][0] = base; 
+        mv->TS[indiceTS][1] = sizes[cantSegments - 1];             
+        base += mv->TS[indiceTS][1];
+        indiceTS++;
+    } 
+
+    //  Luego los demás (CS, DS, ES, SS)
+    for (int i = 0; i < cantSegments - 1; i++) {
+        if (sizes[i] > 0) {
+            mv->TS[indiceTS][0] = base; // tamaño
+            mv->TS[indiceTS][1] = sizes[i];     // base acumulada
+            base += sizes[i];
+            indiceTS++;
+        }
+    }
+}
 
 
 void Disassembler(tipoMV programa)

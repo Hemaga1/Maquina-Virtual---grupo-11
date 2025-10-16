@@ -105,6 +105,7 @@ int leerVMX(const char *filename, tipoMV *mv)
     char id[6];
     fread(id, sizeof(char), 5, arch);
 
+
     // Verificar que el identificador sea correcto
     if (strcmp(id, IDENTIFICADOR) != 0)
     {
@@ -431,7 +432,11 @@ void ejecutar_maquina(tipoMV *mv)
     uint16_t mascaraTOP = 0x03;  // mascara para obtener tipos de operando
     uint8_t TOP1, TOP2;
     inicioVectorOper(operaciones);
-    pushearValor(mv,-1);
+
+    if (mv->version == 2)
+        pushearValor(mv,-1);
+
+
     while ((mv->registros[IP] < ((mv->TS[0][1] + mv->TS[0][0]))) && (mv->registros[IP] != -1))
     {
         // LECTURA INSTRUCCION

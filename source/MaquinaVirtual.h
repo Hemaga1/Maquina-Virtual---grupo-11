@@ -79,12 +79,16 @@ typedef enum
     TMemoria = 3
 } tipoOperando;
 
-extern const char *NombreRegistro[28];
+extern const char *NombreRegistro[32];
 int leerEncabezado(const char *filename, tipoMV *mv);
 void Disassembler(tipoMV programa);
 void PrintOperando(uint32_t op);
 void InicializarRegistros(uint32_t registros[]);
 void ejecutar_maquina(tipoMV *mv);
+void leerParametros(int argc, char *argv[], Tparametros *parametros);
+void crearParamSegment(tipoMV *mv, Tparametros *parametros);
+int leerVMX(const char *filename, tipoMV *mv);
+void iniciarTablaSegmentos(tipoMV *mv, uint16_t sizes[], unsigned short int cantSegments);
 
 uint8_t getTipoOperando(uint32_t op);
 uint32_t getDireccionFisica(tipoMV programa, uint32_t direccion_logica);
@@ -97,6 +101,7 @@ void ModificarCC(tipoMV *programa, uint32_t resultado);
 void SetearAccesoMemoria(tipoMV *programa, uint32_t OP, uint8_t bytes, uint32_t direccion_fisica);
 uint32_t CambiarSigno(uint32_t valor);
 void ModificarIP(tipoMV *programa, uint32_t valor);
+void PrintStackSegment(tipoMV programa);
 void pushearValor(tipoMV *programa, uint32_t valor);
 
 

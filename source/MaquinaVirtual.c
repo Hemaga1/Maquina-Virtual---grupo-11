@@ -16,18 +16,18 @@ int main(int argc, char *argv[])
     mv.tamanioMemoria = parametros.tamanioMemoria;
     crearParamSegment(&mv, &parametros);
 
-    if (parametros.disassembler)
-        Disassembler(mv);
-    
+
     if (parametros.vmxfile)
     { // Si hay .vmx lo leo
-        leerVMX(&mv, parametros.vmxfile);
-        if (parametros.vmifile) // Si tambien habia .vmi genero la imagen
-            escribirVMI(&mv, parametros.vmifile);
+        leerVMX(parametros.vmxfile, &mv);
+        if (parametros.disassembler)
+            Disassembler(mv);
+        //if (parametros.vmifile) // Si tambien habia .vmi genero la imagen
+            //escribirVMI(&mv, parametros.vmifile);
     }
-    else if (parametros.vmifile) // Si no habia .vmx pero si .vmi lo leo para ejecutar la imagen
-        leerVMI(&mv, parametros.vmifile);
-    else
+    else //if (parametros.vmifile) // Si no habia .vmx pero si .vmi lo leo para ejecutar la imagen
+        //leerVMI(&mv, parametros.vmifile);
+    //else
     {
         printf("No se ingreso el archivo .vmx o .vmi\n");
         return 1;
@@ -37,8 +37,8 @@ int main(int argc, char *argv[])
 }
 
 void leerParametros(int argc, char *argv[], Tparametros *parametros) {
-    
-    parametros->tamanioMemoria = 16 * 1024;  
+
+    parametros->tamanioMemoria = 16 * 1024;
     parametros->disassembler = 0;
     parametros->argc = 0;
     parametros->vmxfile = NULL;
@@ -50,7 +50,7 @@ void leerParametros(int argc, char *argv[], Tparametros *parametros) {
         } else if (strstr(argv[i], ".vmi")) {
             parametros->vmifile = argv[i];
         } else if (strncmp(argv[i], "m=", 2) == 0) {
-            parametros->tamanioMemoria = atoi(argv[i] + 2) * 1024;  
+            parametros->tamanioMemoria = atoi(argv[i] + 2) * 1024;
         } else if (strcmp(argv[i], "-d") == 0) {
             parametros->disassembler = 1;
         } else if (strcmp(argv[i], "-p") == 0) {
@@ -66,26 +66,26 @@ void leerParametros(int argc, char *argv[], Tparametros *parametros) {
 
 
 void crearParamSegment(tipoMV *mv, Tparametros *parametros) {
-    unsigned int base = 0;  
+    unsigned int base = 0;
     unsigned int offset = 0;
 
     if (parametros->argc == 0) {
         mv->registros[PS] = -1;
-        return;
     }
+    else {
+        // Copiar los strings uno detrás del otro
+        for (int i = 0; i < parametros->argc; i++) {
+            int len = strlen(parametros->constantes[i]) + 1;
+            memcpy(&mv->memoria[offset], parametros->constantes[i], len);
+            offset += len;
+        }
+        // Configurar el segmento en la tabla
+        mv->TS[0][0] = base;
+        mv->TS[0][1] = offset;
 
-    // Copiar los strings uno detrás del otro
-    for (int i = 0; i < parametros->argc; i++) {
-        int len = strlen(parametros->constantes[i]) + 1;  
-        memcpy(&mv->memoria[offset], parametros->constantes[i], len);
-        offset += len;
+        // Registrar el segmento PS
+        mv->registros[PS] = base;
     }
-    // Configurar el segmento en la tabla
-    mv->TS[0][0] = base;
-    mv->TS[0][1] = offset;
-
-    // Registrar el segmento PS
-    mv->registros[PS] = base;
 }
 
 int leerVMX(const char *filename, tipoMV *mv)
@@ -140,6 +140,8 @@ int leerVMX(const char *filename, tipoMV *mv)
             mv->TS[0][1] = mv->TS[1][0] = tamanioCS;
             mv->TS[0][0] = 0;
             mv->TS[1][1] = mv->tamanioMemoria;
+
+            InicializarRegistros(mv->registros);
         }
         else if (mv->version == 2){
 
@@ -148,9 +150,10 @@ int leerVMX(const char *filename, tipoMV *mv)
             low = tamanios[1] & 0x0FF;
             tamanioCS = ((high << 8) | low);
 
-            unsigned int tamaniosSeg[5]; // CS, DS, ES, SS, KS
+            uint16_t tamaniosSeg[5]; // CS, DS, ES, SS, KS
+            tamaniosSeg[0] = tamanioCS;
 
-            for (int i = 0; i < 5; i++)
+            for (int i = 1; i < 5; i++)
             {
                 unsigned char buffer[2];
                 if (fread(buffer, sizeof(char), 2, arch) != 2)
@@ -171,9 +174,7 @@ int leerVMX(const char *filename, tipoMV *mv)
             }
             unsigned int tamanioEntryPoint = (entryPoint[0] << 8) | entryPoint[1];
 
-            
-
-            // inicializo registros 
+            fread(mv->memoria, 1, tamanioCS, arch);
         }
         else {
             printf("ERROR: versión de archivo incorrecta (%d)\n", mv->version);
@@ -185,31 +186,47 @@ int leerVMX(const char *filename, tipoMV *mv)
     }
 }
 
-void iniciarTablaSegmentos(tipoMV *mv, unsigned int sizes[], unsigned short int cantSegments) {
+void iniciarTablaSegmentos(tipoMV *mv, uint16_t sizes[], unsigned short int cantSegments) {
     // sizes = {CS, DS, ES, SS, KS}
     unsigned int base = 0;
-    int indiceTS = 0;
+    int indiceTS = -1;
+
+    mv->registros[DS] = -1;
+    mv->registros[ES] = -1;
+    mv->registros[KS] = -1;
 
     if(mv->registros[PS] != -1) {
-        base += mv->TS[0][1];
-        indiceTS += 1;
+        indiceTS++;
+        base += mv->TS[indiceTS][1];
     }
 
     //  Primero el segmento de constantes si existe
     if(sizes[cantSegments - 1] > 0) {
-        mv->TS[indiceTS][0] = base; 
-        mv->TS[indiceTS][1] = sizes[cantSegments - 1];             
-        base += mv->TS[indiceTS][1];
         indiceTS++;
-    } 
+        mv->TS[indiceTS][0] = base;
+        mv->TS[indiceTS][1] = sizes[cantSegments - 1];
+        mv->registros[KS] = (indiceTS << 16);
+        base += mv->TS[indiceTS][1];
+    }
 
     //  Luego los demás (CS, DS, ES, SS)
-    for (int i = 0; i < cantSegments - 2; i++) {
+    for (int i = 0; i < 4; i++) {
         if (sizes[i] > 0) {
-            mv->TS[indiceTS][0] = base; // tamaño
-            mv->TS[indiceTS][1] = sizes[i];     // base acumulada
-            base += sizes[i];
             indiceTS++;
+            switch (i) {
+                case 0: mv->registros[CS] = (indiceTS << 16);
+                    break;
+                case 1: mv->registros[DS] = (indiceTS << 16);
+                    break;
+                case 2: mv->registros[ES] = (indiceTS << 16);
+                    break;
+                case 3: mv->registros[SS] = (indiceTS << 16);
+                        mv->registros[SP] = mv->registros[SS] + sizes[i];
+                    break;
+            }
+            mv->TS[indiceTS][0] = base; // tamaño
+            mv->TS[indiceTS][1] = sizes[i]; // base acumulada
+            base += sizes[i];
         }
     }
 }
@@ -217,11 +234,11 @@ void iniciarTablaSegmentos(tipoMV *mv, unsigned int sizes[], unsigned short int 
 
 void Disassembler(tipoMV programa)
 {
-    uint32_t dir = 0;
+    uint32_t dir = getDireccionFisica(programa, programa.registros[CS]);
     uint32_t cantbytes;
     uint32_t op1, op2;
 
-    while (dir < programa.TS[1][0])
+    while (dir < programa.TS[programa.registros[CS] >> 16][1])
     {
         printf("[%04X] ", dir);
 
@@ -285,6 +302,7 @@ void Disassembler(tipoMV programa)
             break;
         }
 
+
         if (((op1 >> 24) != 0) && ((op2 >> 24) != 0))
         {
             PrintOperando(op1);
@@ -293,15 +311,17 @@ void Disassembler(tipoMV programa)
         }
         else
         {
-            if ((op2 >> 24) != 0)
+            if ((op2 >> 24) != 0){
                 PrintOperando(op2);
+            }
         }
         printf("\n");
     }
 }
 
-void PrintOperando(uint32_t op){
-    char registro[4];
+void PrintOperando(uint32_t op)
+{
+    char registro[10];
     uint32_t valor;
     switch (op >> 24) {
                 case 0:
@@ -411,10 +431,10 @@ void ejecutar_maquina(tipoMV *mv)
     uint16_t mascaraTOP = 0x03;  // mascara para obtener tipos de operando
     uint8_t TOP1, TOP2;
     inicioVectorOper(operaciones);
+    pushearValor(mv,-1);
     while ((mv->registros[IP] < ((mv->TS[0][1] + mv->TS[0][0]))) && (mv->registros[IP] != -1))
     {
         // LECTURA INSTRUCCION
-
         uint32_t posicion = mv->registros[IP];
         instruccion = mv->memoria[posicion];
         mv->registros[OPC] = instruccion & mascaraOPC;
@@ -422,6 +442,7 @@ void ejecutar_maquina(tipoMV *mv)
         TOP1 = (instruccion >> 4) & mascaraTOP;
 
         mv->registros[IP] = mv->registros[IP] + 1;
+
 
 
         if (TOP2 != 0)
@@ -437,13 +458,13 @@ void ejecutar_maquina(tipoMV *mv)
 
         uint32_t aux =mv->registros[OPC];
 
+
         if (mv->registros[OPC] >= 0 && mv->registros[OPC] < NUM_INSTRUCCIONES && operaciones[mv->registros[OPC]] != NULL)
             operaciones[mv->registros[OPC]](mv, mv->registros[OP1], mv->registros[OP2]);
         else {
             printf("ERROR: Instruccion Invalida.\n");
             return exit(1);
         }
-
     }
 }
 
@@ -457,7 +478,7 @@ uint32_t getDireccionFisica(tipoMV programa, uint32_t direccion_logica){
 
     // Valida que el segmento exista
     if (segmento >= 8) {
-        printf("Fallo de segmento: segmento %u inválido\n", segmento);
+        printf("Fallo de segmento: segmento %d invalido\n", segmento);
         exit(1);
     }
 
@@ -465,8 +486,8 @@ uint32_t getDireccionFisica(tipoMV programa, uint32_t direccion_logica){
     uint32_t limite = programa.TS[segmento][1];
 
     // Valida que el offset esté dentro del límite
-    if (offset >= limite) {
-        printf("Fallo de segmento: offset 0x%X fuera del límite 0x%X del segmento %u\n",
+    if (offset > limite) {
+        printf("Fallo de segmento: offset 0x%X fuera del limite 0x%X del segmento %u\n",
                offset, limite, segmento);
         exit(1);
     }
@@ -515,8 +536,12 @@ uint32_t getValorCargar(tipoMV *programa, uint32_t OP){
         uint8_t cant_bytes = 4;
         if (programa->version == 2)
            cant_bytes -= (OP & 0xC00000);
-        if (programa->registros[(OP & 0x1F0000) >> 16])
-            direccion_fisica = getDireccionFisica(*programa, programa->registros[(OP & 0x1F0000) >> 16]+ (OP & 0xFFFF));
+        if (programa->registros[(OP & 0x1F0000) >> 16]){
+            if (OP & 0x8000)
+                direccion_fisica = getDireccionFisica(*programa, programa->registros[(OP & 0x1F0000) >> 16] - CambiarSigno((OP & 0xFFFF) + 0xFFFF0000));
+            else
+                direccion_fisica = getDireccionFisica(*programa, programa->registros[(OP & 0x1F0000) >> 16]+ (OP & 0xFFFF));
+        }
         else
             direccion_fisica = getDireccionFisica(*programa,  0x10000 + (OP & 0xFFFF));
         SetearAccesoMemoria(programa, OP, cant_bytes, direccion_fisica);
@@ -555,8 +580,12 @@ void setOperando(tipoMV *programa, uint32_t OP, uint32_t valor_cargar){
         uint8_t cant_bytes = 4;
         if (programa->version == 2)
            cant_bytes -= (OP & 0xC00000);
-        if (programa->registros[(OP & 0x1F0000) >> 16])
-            direccion_fisica = getDireccionFisica(*programa, programa->registros[(OP & 0x1F0000) >> 16]+ (OP & 0xFFFF));
+        if (programa->registros[(OP & 0x1F0000) >> 16]){
+            if (OP & 0x8000)
+                direccion_fisica = getDireccionFisica(*programa, programa->registros[(OP & 0x1F0000) >> 16] - CambiarSigno((OP & 0xFFFF) + 0xFFFF0000));
+            else
+                direccion_fisica = getDireccionFisica(*programa, programa->registros[(OP & 0x1F0000) >> 16]+ (OP & 0xFFFF));
+        }
         else
             direccion_fisica = getDireccionFisica(*programa,  0x10000 + (OP & 0xFFFF));
         SetearAccesoMemoria(programa, OP, cant_bytes, direccion_fisica);
@@ -608,11 +637,32 @@ void MostrarBinario(uint32_t numero){
     }
 }
 
+void PrintStackSegment(tipoMV programa){
+    uint32_t direccion_fisica;
+    uint32_t offset=0x400;
+    uint32_t valor;
+
+    while (offset > 0x3DC){
+        offset -= 4;
+        direccion_fisica = getDireccionFisica(programa,programa.registros[SS]+offset);
+        valor = 0;
+        for (int i=0; i<4; i++){
+                printf("MEM: %X\n",programa.memoria[direccion_fisica + 3 - i]);
+            valor |= programa.memoria[direccion_fisica + 3 - i] << (i*8);
+        }
+        printf("[%X]: %X\n",offset,valor);
+
+    }
+
+    printf(" --------------------------------- \n");
+
+}
+
 void pushearValor(tipoMV *programa, uint32_t valor){
     uint32_t direccion_fisica;
 
     programa->registros[SP] -= 4;
-    if (programa->registros[SP] < programa->registros[SS]){
+    if ((programa->registros[SP] & 0xFFFF) < 0){
         printf("STACK OVERFLOW\n");
         exit(1);
     }
@@ -630,7 +680,7 @@ void pushearValor(tipoMV *programa, uint32_t valor){
     }
 }
 
-const char *NombreRegistro[28] = {
+const char *NombreRegistro[32] = {
     [0] = "LAR",
     [1] = "MAR",
     [2] = "MBR",
@@ -639,6 +689,9 @@ const char *NombreRegistro[28] = {
     [4] = "OPC",
     [5] = "OP1",
     [6] = "OP2",
+
+    [7] = "SP",
+    [8] = "BP",
 
     [10] = "EAX",
     [11] = "EBX",
@@ -651,5 +704,9 @@ const char *NombreRegistro[28] = {
     [17] = "CC",
 
     [26] = "CS",
-    [27] = "DS"
+    [27] = "DS",
+    [28] = "ES",
+    [29] = "SS",
+    [30] = "KS",
+    [31] = "PS"
 };

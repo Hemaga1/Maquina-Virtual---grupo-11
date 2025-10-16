@@ -377,7 +377,6 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
 
             programa->registros[MBR] = 0;
 
-            printf("[%04X]: ",direccion_fisica);
 
             for (int k=0;k<5;k++){
                 if (formato & 1)
@@ -428,7 +427,7 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
                         case 0: if (programa->registros[MBR] & 0x80000000)
                                     printf("%d ",(int32_t)programa->registros[MBR]);
                                 else
-                                    printf("%d ",(int32_t)programa->registros[MBR]);
+                                    printf("%d ",programa->registros[MBR]);
                                 break;
                         case 1:
                                 for (int g=((programa->registros[ECX] & 0xFFFF0000) >> 16)-1; g>-1; g--){
@@ -551,13 +550,12 @@ void PUSH(tipoMV *programa, uint32_t op1, uint32_t op2){
     programa->registros[OP2] = 0;
 
     programa->registros[SP] -= 4;
-    if (programa->registros[SP] < programa->registros[SS]){
+    if ((programa->registros[SP] & 0xFFFF) < 0){
         printf("STACK OVERFLOW\n");
         exit(1);
     }
     else {
         valor_cargar = getValorCargar(programa, op2);
-        valor_cargar = PropagarSigno((valor_cargar << 16),16);
         direccion_fisica = getDireccionFisica(*programa,  programa->registros[SP]);
 
         programa->registros[LAR] = programa->registros[SP];
@@ -587,15 +585,14 @@ void POP(tipoMV *programa, uint32_t op1, uint32_t op2){
 
     programa->registros[SP] += 4;
 
-    /*
-    if (programa->registros[SP] > tamaño de SP){
+    if ((programa->registros[SP] & 0xFFFF) > programa->TS[programa->registros[SS] >> 16][1]){
         printf("STACK UNDERFLOW\n");
         exit(1);
-    }*/
+    }
+
 }
 
 void CALL(tipoMV *programa, uint32_t op1, uint32_t op2){
-
     pushearValor(programa,programa->registros[IP]);
 
     JMP(programa,op1,op2);
@@ -613,15 +610,16 @@ void RET(tipoMV *programa, uint32_t op1, uint32_t op2){
         programa->registros[MBR] |= programa->memoria[direccion_fisica + 3 - i] << (i*8);
     }
 
+
     programa->registros[IP] = programa->registros[MBR];
 
     programa->registros[SP] += 4;
 
-    /*
-    if (programa->registros[SP] > tamaño de SP){
+
+    if ((programa->registros[SP] & 0xFFFF) > programa->TS[programa->registros[SS] >> 16][1]){
         printf("STACK UNDERFLOW\n");
         exit(1);
-    }*/
+    }
 }
 
 //Sin operandos

@@ -22,6 +22,7 @@ int main(int argc, char *argv[])
         leerVMX(parametros.vmxfile, &mv);
         if (parametros.disassembler)
             Disassembler(mv);
+
         //if (parametros.vmifile) // Si tambien habia .vmi genero la imagen
             //escribirVMI(&mv, parametros.vmifile);
     }
@@ -175,7 +176,20 @@ int leerVMX(const char *filename, tipoMV *mv)
             }
             unsigned int tamanioEntryPoint = (entryPoint[0] << 8) | entryPoint[1];
 
-            fread(mv->memoria, 1, tamanioCS, arch);
+            //fread(mv->memoria, 1, tamaniosSeg[4], arch);
+
+            uint32_t direc = getDireccionFisica(*mv,mv->registros[CS]);
+            for (int i = direc; i < direc + tamaniosSeg[0]; i++){
+                fread(&mv->memoria[i], 1, 1, arch);
+            }
+
+            if (mv->registros[KS] != -1){
+                direc = getDireccionFisica(*mv,mv->registros[KS]);
+                for (int i = direc; i < direc + tamaniosSeg[4]; i++){
+                    fread(&mv->memoria[i], 1, 1, arch);
+                }
+            }
+
         }
         else {
             printf("ERROR: versión de archivo incorrecta (%d)\n", mv->version);
@@ -235,11 +249,12 @@ void iniciarTablaSegmentos(tipoMV *mv, uint16_t sizes[], unsigned short int cant
 
 void Disassembler(tipoMV programa)
 {
-    uint32_t dir = getDireccionFisica(programa, programa.registros[CS]);
+    uint32_t direcBase = getDireccionFisica(programa, programa.registros[CS]);
+    uint32_t dir = direcBase;
     uint32_t cantbytes;
     uint32_t op1, op2;
 
-    while (dir < programa.TS[programa.registros[CS] >> 16][1])
+    while (dir < programa.TS[programa.registros[CS] >> 16][1] + direcBase)
     {
         printf("[%04X] ", dir);
 
@@ -346,7 +361,7 @@ void PrintOperando(uint32_t op)
                         }
                         else printf("%d",op & 0xFFFF);
                     break;
-                case 3: switch (op & 0xC00000){
+                case 3: switch ((op & 0xC00000) >> 22){
                             case 0b00: printf("l");
                                 break;
                             case 0b10: printf("w");
@@ -388,7 +403,7 @@ void ModificarIP(tipoMV *programa, uint32_t valor){
 
 void leerOperando(tipoMV *mv, int TOP, uint32_t Op)
 {
-    uint32_t dir = mv->registros[IP]; // Dirección actual de instrucción
+    uint32_t dir = getDireccionFisica(*mv,mv->registros[IP]); // Dirección actual de instrucción
 
     switch (TOP)
     {
@@ -433,14 +448,16 @@ void ejecutar_maquina(tipoMV *mv)
     uint8_t TOP1, TOP2;
     inicioVectorOper(operaciones);
 
+    mv->registros[IP] = mv->registros[CS];
+
     if (mv->version == 2)
         pushearValor(mv,-1);
 
 
-    while ((mv->registros[IP] < ((mv->TS[0][1] + mv->TS[0][0]))) && (mv->registros[IP] != -1))
+    while ((mv->registros[IP] < (( mv->registros[CS] + mv->TS[mv->registros[IP] >> 16][1] ))) && (mv->registros[IP] != -1))
     {
         // LECTURA INSTRUCCION
-        uint32_t posicion = mv->registros[IP];
+        uint32_t posicion = getDireccionFisica(*mv,mv->registros[IP]);
         instruccion = mv->memoria[posicion];
         mv->registros[OPC] = instruccion & mascaraOPC;
         TOP2 = (instruccion >> 6) & mascaraTOP;
@@ -462,7 +479,6 @@ void ejecutar_maquina(tipoMV *mv)
         // EJECUCION INSTRUCCION
 
         uint32_t aux =mv->registros[OPC];
-
 
         if (mv->registros[OPC] >= 0 && mv->registros[OPC] < NUM_INSTRUCCIONES && operaciones[mv->registros[OPC]] != NULL)
             operaciones[mv->registros[OPC]](mv, mv->registros[OP1], mv->registros[OP2]);
@@ -540,7 +556,7 @@ uint32_t getValorCargar(tipoMV *programa, uint32_t OP){
     if (tipo_op == 3){
         uint8_t cant_bytes = 4;
         if (programa->version == 2)
-           cant_bytes -= (OP & 0xC00000);
+           cant_bytes -= ((OP & 0xC00000) >> 22);
         if (programa->registros[(OP & 0x1F0000) >> 16]){
             if (OP & 0x8000)
                 direccion_fisica = getDireccionFisica(*programa, programa->registros[(OP & 0x1F0000) >> 16] - CambiarSigno((OP & 0xFFFF) + 0xFFFF0000));
@@ -560,7 +576,7 @@ uint32_t getValorCargar(tipoMV *programa, uint32_t OP){
         if (tipo_op == 1){
             if (programa->version == 2){
                 uint32_t res;
-                switch (OP & 0xC0){
+                switch ((OP & 0xC0) >> 6){
                     case 0b00: res = programa->registros[OP & 0x1F];
                         break;
                     case 0b01: res = programa->registros[OP & 0x1F] & 0xFF;
@@ -584,7 +600,7 @@ void setOperando(tipoMV *programa, uint32_t OP, uint32_t valor_cargar){
     if (tipo_op == 3){
         uint8_t cant_bytes = 4;
         if (programa->version == 2)
-           cant_bytes -= (OP & 0xC00000);
+           cant_bytes -= ((OP & 0xC00000) >> 22);
         if (programa->registros[(OP & 0x1F0000) >> 16]){
             if (OP & 0x8000)
                 direccion_fisica = getDireccionFisica(*programa, programa->registros[(OP & 0x1F0000) >> 16] - CambiarSigno((OP & 0xFFFF) + 0xFFFF0000));
@@ -602,7 +618,7 @@ void setOperando(tipoMV *programa, uint32_t OP, uint32_t valor_cargar){
     }
     else {
         if (programa->version == 2){
-            switch (OP & 0xC0){
+            switch ((OP & 0xC0)>>6){
                 case 0b00: programa->registros[OP & 0x1F] = valor_cargar;
                     break;
                 case 0b01: programa->registros[OP & 0x1F] = (programa->registros[OP & 0x1F] & 0xFFFFFF00) + (valor_cargar & 0xFF);
@@ -642,26 +658,6 @@ void MostrarBinario(uint32_t numero){
     }
 }
 
-void PrintStackSegment(tipoMV programa){
-    uint32_t direccion_fisica;
-    uint32_t offset=0x400;
-    uint32_t valor;
-
-    while (offset > 0x3DC){
-        offset -= 4;
-        direccion_fisica = getDireccionFisica(programa,programa.registros[SS]+offset);
-        valor = 0;
-        for (int i=0; i<4; i++){
-                printf("MEM: %X\n",programa.memoria[direccion_fisica + 3 - i]);
-            valor |= programa.memoria[direccion_fisica + 3 - i] << (i*8);
-        }
-        printf("[%X]: %X\n",offset,valor);
-
-    }
-
-    printf(" --------------------------------- \n");
-
-}
 
 void pushearValor(tipoMV *programa, uint32_t valor){
     uint32_t direccion_fisica;

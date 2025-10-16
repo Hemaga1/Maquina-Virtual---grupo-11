@@ -490,7 +490,7 @@ void JMP(tipoMV *programa, uint32_t op1, uint32_t op2){
 
     valor_cargar = getValorCargar(programa, op2);
 
-    ModificarIP(programa, valor_cargar);
+    ModificarIP(programa, programa->registros[CS] + valor_cargar);
 }
 
 void JZ(tipoMV *programa, uint32_t op1, uint32_t op2){

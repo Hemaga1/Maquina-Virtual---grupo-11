@@ -101,7 +101,6 @@ void ModificarCC(tipoMV *programa, uint32_t resultado);
 void SetearAccesoMemoria(tipoMV *programa, uint32_t OP, uint8_t bytes, uint32_t direccion_fisica);
 uint32_t CambiarSigno(uint32_t valor);
 void ModificarIP(tipoMV *programa, uint32_t valor);
-void PrintStackSegment(tipoMV programa);
 void pushearValor(tipoMV *programa, uint32_t valor);
 
 

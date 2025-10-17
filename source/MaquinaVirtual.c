@@ -69,6 +69,7 @@ void leerParametros(int argc, char *argv[], Tparametros *parametros) {
 void crearParamSegment(tipoMV *mv, Tparametros *parametros) {
     unsigned int base = 0;
     unsigned int offset = 0;
+    uint32_t argv[50];
 
     if (parametros->argc == 0) {
         mv->registros[PS] = -1;
@@ -78,8 +79,19 @@ void crearParamSegment(tipoMV *mv, Tparametros *parametros) {
         for (int i = 0; i < parametros->argc; i++) {
             int len = strlen(parametros->constantes[i]) + 1;
             memcpy(&mv->memoria[offset], parametros->constantes[i], len);
+            argv[i] = offset;
             offset += len;
         }
+
+        mv->argv = offset;
+        mv->argc = parametros->argc;
+
+        for (int i = 0; i < parametros->argc; i++) {
+            for (int j=0; j<4; j++)
+                mv->memoria[offset + 3 - j] = (argv[i] & (0xFF << (j*8))) >> (j*8);
+            offset += 4;
+        }
+
         // Configurar el segmento en la tabla
         mv->TS[0][0] = base;
         mv->TS[0][1] = offset;
@@ -175,8 +187,6 @@ int leerVMX(const char *filename, tipoMV *mv)
                 exit(1);
             }
             unsigned int tamanioEntryPoint = (entryPoint[0] << 8) | entryPoint[1];
-
-            //fread(mv->memoria, 1, tamaniosSeg[4], arch);
 
             uint32_t direc = getDireccionFisica(*mv,mv->registros[CS]);
             for (int i = direc; i < direc + tamaniosSeg[0]; i++){
@@ -450,8 +460,13 @@ void ejecutar_maquina(tipoMV *mv)
 
     mv->registros[IP] = mv->registros[CS];
 
-    if (mv->version == 2)
+    if (mv->version == 2){
+        if (mv->registros[PS]!= -1){
+            pushearValor(mv,mv->argv);
+            pushearValor(mv,mv->argc);
+        }
         pushearValor(mv,-1);
+    }
 
 
     while ((mv->registros[IP] < (( mv->registros[CS] + mv->TS[mv->registros[IP] >> 16][1] ))) && (mv->registros[IP] != -1))
@@ -479,6 +494,8 @@ void ejecutar_maquina(tipoMV *mv)
         // EJECUCION INSTRUCCION
 
         uint32_t aux =mv->registros[OPC];
+
+        //printf("OPC: %s  EAX: %d  ECX: %d  EDX: %d EEX: %X EFX: %X\n",Mnemonicos[mv->registros[OPC]],mv->registros[EAX],mv->registros[ECX],mv->registros[EDX],mv->registros[EEX],mv->registros[EFX]);
 
         if (mv->registros[OPC] >= 0 && mv->registros[OPC] < NUM_INSTRUCCIONES && operaciones[mv->registros[OPC]] != NULL)
             operaciones[mv->registros[OPC]](mv, mv->registros[OP1], mv->registros[OP2]);
@@ -557,7 +574,7 @@ uint32_t getValorCargar(tipoMV *programa, uint32_t OP){
         uint8_t cant_bytes = 4;
         if (programa->version == 2)
            cant_bytes -= ((OP & 0xC00000) >> 22);
-        if (programa->registros[(OP & 0x1F0000) >> 16]){
+        if ((OP & 0x1F0000) >> 16){
             if (OP & 0x8000)
                 direccion_fisica = getDireccionFisica(*programa, programa->registros[(OP & 0x1F0000) >> 16] - CambiarSigno((OP & 0xFFFF) + 0xFFFF0000));
             else
@@ -601,7 +618,7 @@ void setOperando(tipoMV *programa, uint32_t OP, uint32_t valor_cargar){
         uint8_t cant_bytes = 4;
         if (programa->version == 2)
            cant_bytes -= ((OP & 0xC00000) >> 22);
-        if (programa->registros[(OP & 0x1F0000) >> 16]){
+        if ((OP & 0x1F0000) >> 16){
             if (OP & 0x8000)
                 direccion_fisica = getDireccionFisica(*programa, programa->registros[(OP & 0x1F0000) >> 16] - CambiarSigno((OP & 0xFFFF) + 0xFFFF0000));
             else

@@ -18,21 +18,26 @@ int main(int argc, char *argv[])
 
 
     if (parametros.vmxfile)
-    { // Si hay .vmx lo leo
+    {
+        mv.nombreVMX = parametros.vmxfile;
         leerVMX(parametros.vmxfile, &mv);
-        if (parametros.disassembler)
-            Disassembler(mv);
+        if (parametros.vmifile) 
+            mv.nombreVMI = parametros.vmifile;
+        else
+            mv.nombreVMI = NULL;
 
-        //if (parametros.vmifile) // Si tambien habia .vmi genero la imagen
-            //escribirVMI(&mv, parametros.vmifile);
     }
-    else //if (parametros.vmifile) // Si no habia .vmx pero si .vmi lo leo para ejecutar la imagen
-        //leerVMI(&mv, parametros.vmifile);
-    //else
+    else if (parametros.vmifile) {
+        mv.nombreVMI = parametros.vmifile;
+        leerVMI(&mv, parametros.vmifile);
+    }
+    else
     {
         printf("No se ingreso el archivo .vmx o .vmi\n");
         return 1;
     }
+    if (parametros.disassembler)
+        Disassembler(mv);
     ejecutar_maquina(&mv);
     return 0;
 }
@@ -91,6 +96,7 @@ void crearParamSegment(tipoMV *mv, Tparametros *parametros) {
 
 int leerVMX(const char *filename, tipoMV *mv)
 {
+    printf("Leyendo archivo VMX: %s\n", filename);
     FILE *arch = fopen(filename, "rb");
 
     char tamanios[2];
@@ -100,12 +106,12 @@ int leerVMX(const char *filename, tipoMV *mv)
     if (!arch)
     {
         printf("No se pudo abrir el archivo");
-        return 0;
+        exit(1);
     }
 
     char id[6];
     fread(id, sizeof(char), 5, arch);
-
+    id[5] = '\0';
 
     // Verificar que el identificador sea correcto
     if (strcmp(id, IDENTIFICADOR) != 0)
@@ -116,6 +122,7 @@ int leerVMX(const char *filename, tipoMV *mv)
     }
     else
     {
+        printf("Leyendo archivo VMX: %s\n", filename);
         fread(&(mv->version), 1, 1, arch);
         if (mv->version == 1)
         {
@@ -147,6 +154,7 @@ int leerVMX(const char *filename, tipoMV *mv)
         }
         else if (mv->version == 2){
 
+
             fread(tamanios, sizeof(char), 2, arch);
             high = tamanios[0] & 0x0FF;
             low = tamanios[1] & 0x0FF;
@@ -166,9 +174,16 @@ int leerVMX(const char *filename, tipoMV *mv)
                 }
                 tamaniosSeg[i] = (buffer[0] << 8) | buffer[1];
             }
-
+            
+            mv->memoria = (char *)malloc(mv->tamanioMemoria);
+            if (mv->memoria == NULL) {
+                fprintf(stderr, "ERROR: no se pudo asignar memoria\n");
+                fclose(arch);
+                exit(1);
+            }
+            
             iniciarTablaSegmentos(mv, tamaniosSeg, 5);
-
+                                    
             unsigned char entryPoint[2];
             if (fread(entryPoint, sizeof(char), 2, arch) != 2) {
                 printf("ERROR: no se pudo leer el entry point\n");
@@ -179,6 +194,7 @@ int leerVMX(const char *filename, tipoMV *mv)
             //fread(mv->memoria, 1, tamaniosSeg[4], arch);
 
             uint32_t direc = getDireccionFisica(*mv,mv->registros[CS]);
+            printf("Archivo VMX valido: %s\n", filename);
             for (int i = direc; i < direc + tamaniosSeg[0]; i++){
                 fread(&mv->memoria[i], 1, 1, arch);
             }
@@ -195,7 +211,7 @@ int leerVMX(const char *filename, tipoMV *mv)
             printf("ERROR: versión de archivo incorrecta (%d)\n", mv->version);
             exit(1);
         }
-
+        mv->breakpointFlag = 0;
         fclose(arch);
         return 1;
     }
@@ -227,9 +243,8 @@ void leerVMI(tipoMV *mv, char *fileName) {
         {
             fread(&mv->tamanioMemoria, 2, 1, arch);
             mv->memoria = (char *)malloc(mv->tamanioMemoria);
-            fread(mv->registros, 4, 32, arch);
-            fread(mv->TS, 4, 8, arch);
-            mv->memoria = malloc(mv->tamanioMemoria * sizeof(unsigned char));
+            fread(mv->registros, sizeof(uint32_t), NUM_REGISTROS, arch);
+            fread(mv->TS, sizeof(uint16_t), 8 * 2, arch);
             fread(mv->memoria, 1, mv->tamanioMemoria, arch);
         }
 
@@ -238,34 +253,27 @@ void leerVMI(tipoMV *mv, char *fileName) {
 }
 
 
-void crearVMI(tipoMV *vm, char *fileName) {
+void crearVMI(tipoMV *mv, char *fileName) {
     FILE *arch;
     unsigned char header[6] = "VMI25";
     unsigned char version = 0x01;
     if ((arch = fopen(fileName, "wb")) == NULL)
-        printf("ERROR al crear el archivo %s : ", fileName);
+        printf("Error al crear el archivo %s : ", fileName);
     else {
-        // Escritura del identificador y version del archivo
         fwrite(header, sizeof(char), 5, arch);
         fwrite(&version, sizeof(char), 1, arch);
 
-        // Escritura de registros
-        for (int i = 0; i < 32; i++) {
-            fwrite(&vm->registros[i], sizeof(int), 1, arch);
-        }
+        uint16_t tamMem = (uint16_t)mv->tamanioMemoria;
+        fwrite(&tamMem, sizeof(uint16_t), 1, arch);
 
-        int tamanioMem = 0;
-        // Escritura de tabla de segmentos
+        fwrite(mv->registros, sizeof(uint32_t), NUM_REGISTROS, arch);
+
         for (int i = 0; i < 8; i++) {
-            fwrite(&vm->TS[i][0], sizeof(unsigned short int), 1, arch);
-            fwrite(&vm->TS[i][1], sizeof(unsigned short int), 1, arch);
-            tamanioMem += vm->TS[i][1];
+            fwrite(&mv->TS[i][0], sizeof(uint16_t), 1, arch);
+            fwrite(&mv->TS[i][1], sizeof(uint16_t), 1, arch);
         }
 
-        // Escritura de memoria
-        for (int i = 0; i < tamanioMem; i++) {
-            fwrite(&vm->memoria[i], sizeof(unsigned char), 1, arch);
-        }
+        fwrite(mv->memoria, 1, mv->tamanioMemoria, arch);
 
         fclose(arch);
     }
@@ -527,6 +535,33 @@ void ejecutar_maquina(tipoMV *mv)
 
     while ((mv->registros[IP] < (( mv->registros[CS] + mv->TS[mv->registros[IP] >> 16][1] ))) && (mv->registros[IP] != -1))
     {
+        printf("\n--- Estado de la Maquina Virtual ---\n");
+        printf("IP: %08X\n", mv->registros[IP]);
+        
+        char opcionDebug;
+        if (mv->breakpointFlag == 1)
+        {
+            scanf("%c", &opcionDebug);
+            getchar(); 
+            switch (opcionDebug)
+            {
+            case 'g':
+            {
+                mv->breakpointFlag = 0;
+                break; 
+            }
+            case 'q':
+            {
+                exit(0); 
+                break;
+            }
+            default:
+            {
+                breakpoint(mv);
+                break;
+            }
+            }
+        }
         // LECTURA INSTRUCCION
         uint32_t posicion = getDireccionFisica(*mv,mv->registros[IP]);
         instruccion = mv->memoria[posicion];

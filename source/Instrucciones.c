@@ -360,14 +360,18 @@ void RND(tipoMV *programa, uint32_t op1, uint32_t op2){
 void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
     programa->registros[OP1] = op2;
     programa->registros[OP2] = 0;
-    char cadena[33];
-    uint32_t direccion_fisica = getDireccionFisica(*programa,programa->registros[EDX]);
-    uint16_t formato = programa->registros[EAX];
-    SetearAccesoMemoria(programa, (0x13 << 16) + (programa->registros[EDX] & 0xFFFF), (programa->registros[ECX] & 0xFFFF) , direccion_fisica);
-    programa->registros[MBR] = 0;
-
+    // char cadena[33];
+    // uint32_t direccion_fisica = getDireccionFisica(*programa,programa->registros[EDX]);
+    // uint16_t formato = programa->registros[EAX];
+    // SetearAccesoMemoria(programa, (0x13 << 16) + (programa->registros[EDX] & 0xFFFF), (programa->registros[ECX] & 0xFFFF) , direccion_fisica);
+    // programa->registros[MBR] = 0;
 
     if ((programa->registros[OP1] & 0xFFFF) == 1){
+            char cadena[33];
+            uint32_t direccion_fisica = getDireccionFisica(*programa,programa->registros[EDX]);
+            uint16_t formato = programa->registros[EAX];
+            SetearAccesoMemoria(programa, (0x13 << 16) + (programa->registros[EDX] & 0xFFFF), (programa->registros[ECX] & 0xFFFF) , direccion_fisica);
+            programa->registros[MBR] = 0;
 
         for (int i=0;i<(programa->registros[ECX] & 0xFFFF);i++){
 
@@ -403,8 +407,13 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
         }
         printf("\n");
     }
-    else
-    if ((programa->registros[OP1] & 0xFFFF) == 2){
+    else if ((programa->registros[OP1] & 0xFFFF) == 2){
+            char cadena[33];
+            uint32_t direccion_fisica = getDireccionFisica(*programa,programa->registros[EDX]);
+            uint16_t formato = programa->registros[EAX];
+            SetearAccesoMemoria(programa, (0x13 << 16) + (programa->registros[EDX] & 0xFFFF), (programa->registros[ECX] & 0xFFFF) , direccion_fisica);
+            programa->registros[MBR] = 0;
+
         for (int i=0; i<(programa->registros[ECX] & 0xFFFF); i++){
 
             formato = programa->registros[EAX];
@@ -454,8 +463,12 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
             direccion_fisica += ((programa->registros[ECX] & 0xFFFF0000) >> 16);
         }
     }
-    else
-    if ((programa->registros[OP1] & 0xFFFF) == 3) {
+    else if ((programa->registros[OP1] & 0xFFFF) == 3) {
+            uint32_t direccion_fisica = getDireccionFisica(*programa,programa->registros[EDX]);
+            uint16_t formato = programa->registros[EAX];
+            SetearAccesoMemoria(programa, (0x13 << 16) + (programa->registros[EDX] & 0xFFFF), (programa->registros[ECX] & 0xFFFF) , direccion_fisica);
+            programa->registros[MBR] = 0;
+
         char cadena[programa->registros[ECX] + 1];
         scanf("%s",cadena);
         //plantear como se carga el MBR
@@ -466,6 +479,11 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
         programa->memoria[direccion_fisica + i] = '\0';
     }
     if ((programa->registros[OP1] & 0xFFFF) == 4) {
+    uint32_t direccion_fisica = getDireccionFisica(*programa,programa->registros[EDX]);
+    uint16_t formato = programa->registros[EAX];
+    SetearAccesoMemoria(programa, (0x13 << 16) + (programa->registros[EDX] & 0xFFFF), (programa->registros[ECX] & 0xFFFF) , direccion_fisica);
+    programa->registros[MBR] = 0;
+
         int i=0;
         //plantear como se carga el MBR
         char caracter = ' ';
@@ -478,8 +496,18 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
     if ((programa->registros[OP1] & 0xFFFF) == 7){
         system("cls");
     }
+    else if ((programa->registros[OP1] & 0xFFFF) == 15) {
+        breakpoint(programa);
+    }
+}
+
+void breakpoint(tipoMV *mv){
+    if (mv->nombreVMI != NULL){
+            crearVMI(mv, mv->nombreVMI);
+            mv->breakpointFlag = 1;
+        }
     else {
-        //BREAKPOINT
+        printf("No se ha abierto ningun archivo VMI para guardar la imagen de la VM.\n");
     }
 }
 

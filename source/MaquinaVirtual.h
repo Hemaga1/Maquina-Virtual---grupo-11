@@ -56,7 +56,9 @@ typedef struct MV
     uint16_t TS[8][2];
     uint16_t tamanioMemoria;
     char *nombreVMX;
+    char *nombreVMI;
     char version;
+    int breakpointFlag;
 } tipoMV;
 
 
@@ -82,6 +84,9 @@ typedef enum
 
 extern const char *NombreRegistro[32];
 int leerEncabezado(const char *filename, tipoMV *mv);
+
+void leerVMI(tipoMV *mv, char *fileName);
+void crearVMI(tipoMV *vm, char *fileName);
 void Disassembler(tipoMV programa);
 void PrintOperando(uint32_t op);
 void InicializarRegistros(uint32_t registros[]);

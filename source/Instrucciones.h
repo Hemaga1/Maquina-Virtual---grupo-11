@@ -7,6 +7,7 @@
 
 typedef void (*funcion)(tipoMV *programa, uint32_t op1, uint32_t op2);
 void inicioVectorOper(funcion operacion[]);
+void breakpoint(tipoMV *mv);
 extern const char* Mnemonicos[32];
 
 void MOV(tipoMV *programa, uint32_t op1, uint32_t op2);

@@ -8,6 +8,7 @@
 
 //#define VERSION 1
 #define IDENTIFICADOR "VMX25"
+#define IDENTIFICADOR_VMI "VMI25"
 
 typedef enum
 {

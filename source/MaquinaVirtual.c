@@ -201,6 +201,77 @@ int leerVMX(const char *filename, tipoMV *mv)
     }
 }
 
+
+void leerVMI(tipoMV *mv, char *fileName) {
+    FILE *arch = fopen(fileName, "rb");
+    unsigned char header[6], version;
+
+    if (arch == NULL)
+        printf("Error al abrir el archivo %s : ", fileName);
+    else {
+        fread(header, sizeof(char), 5, arch);
+        header[5] = '\0';  
+
+        if (strcmp(header, IDENTIFICADOR_VMI) != 0) {
+            printf("Archivo no valido: identificador incorrecto (%s)\n", header);
+            exit(1);
+        }
+
+        fread(&version, sizeof(char), 1, arch);
+
+        if (version != 0x01) {
+            printf("Error: versión de archivo incorrecta (%d)\n", version);
+            exit(1);
+        }
+        else
+        {
+            fread(&mv->tamanioMemoria, 2, 1, arch);
+            mv->memoria = (char *)malloc(mv->tamanioMemoria);
+            fread(mv->registros, 4, 32, arch);
+            fread(mv->TS, 4, 8, arch);
+            mv->memoria = malloc(mv->tamanioMemoria * sizeof(unsigned char));
+            fread(mv->memoria, 1, mv->tamanioMemoria, arch);
+        }
+
+        fclose(arch);
+    }
+}
+
+
+void crearVMI(tipoMV *vm, char *fileName) {
+    FILE *arch;
+    unsigned char header[6] = "VMI25";
+    unsigned char version = 0x01;
+    if ((arch = fopen(fileName, "wb")) == NULL)
+        printf("ERROR al crear el archivo %s : ", fileName);
+    else {
+        // Escritura del identificador y version del archivo
+        fwrite(header, sizeof(char), 5, arch);
+        fwrite(&version, sizeof(char), 1, arch);
+
+        // Escritura de registros
+        for (int i = 0; i < 32; i++) {
+            fwrite(&vm->registros[i], sizeof(int), 1, arch);
+        }
+
+        int tamanioMem = 0;
+        // Escritura de tabla de segmentos
+        for (int i = 0; i < 8; i++) {
+            fwrite(&vm->TS[i][0], sizeof(unsigned short int), 1, arch);
+            fwrite(&vm->TS[i][1], sizeof(unsigned short int), 1, arch);
+            tamanioMem += vm->TS[i][1];
+        }
+
+        // Escritura de memoria
+        for (int i = 0; i < tamanioMem; i++) {
+            fwrite(&vm->memoria[i], sizeof(unsigned char), 1, arch);
+        }
+
+        fclose(arch);
+    }
+}
+
+
 void iniciarTablaSegmentos(tipoMV *mv, uint16_t sizes[], unsigned short int cantSegments) {
     // sizes = {CS, DS, ES, SS, KS}
     unsigned int base = 0;

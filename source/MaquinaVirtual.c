@@ -194,7 +194,6 @@ int leerVMX(const char *filename, tipoMV *mv)
             //fread(mv->memoria, 1, tamaniosSeg[4], arch);
 
             uint32_t direc = getDireccionFisica(*mv,mv->registros[CS]);
-            printf("Archivo VMX valido: %s\n", filename);
             for (int i = direc; i < direc + tamaniosSeg[0]; i++){
                 fread(&mv->memoria[i], 1, 1, arch);
             }

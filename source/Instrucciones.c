@@ -479,17 +479,22 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
         programa->memoria[direccion_fisica + i] = '\0';
     }
     if ((programa->registros[OP1] & 0xFFFF) == 4) {
+
     uint32_t direccion_fisica = getDireccionFisica(*programa,programa->registros[EDX]);
     uint16_t formato = programa->registros[EAX];
     SetearAccesoMemoria(programa, (0x13 << 16) + (programa->registros[EDX] & 0xFFFF), (programa->registros[ECX] & 0xFFFF) , direccion_fisica);
     programa->registros[MBR] = 0;
 
+        printf("[%04X]: ",direccion_fisica);
+
+
         int i=0;
         //plantear como se carga el MBR
         char caracter = ' ';
-        while (caracter != '\0'){
+        while ((caracter != '\0') && (i < programa->registros[ECX])){
             caracter = programa->memoria[direccion_fisica + i];
             printf("%c",caracter);
+            i++;
         }
     }
     else

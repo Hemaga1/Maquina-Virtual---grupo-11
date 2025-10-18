@@ -55,6 +55,8 @@ typedef struct MV
     uint32_t registros[NUM_REGISTROS];
     uint16_t TS[8][2];
     uint16_t tamanioMemoria;
+    uint32_t argc;
+    uint32_t argv;
     char *nombreVMX;
     char *nombreVMI;
     char version;

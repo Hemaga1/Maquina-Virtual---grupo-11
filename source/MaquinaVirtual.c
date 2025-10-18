@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
 }
 
 void leerParametros(int argc, char *argv[], Tparametros *parametros) {
-
+    // se inicializan los valores por defecto
     parametros->tamanioMemoria = 16 * 1024;
     parametros->disassembler = 0;
     parametros->argc = 0;
@@ -266,25 +266,43 @@ void leerVMI(tipoMV *mv, char *fileName) {
 void crearVMI(tipoMV *mv, char *fileName) {
     FILE *arch;
     unsigned char header[6] = "VMI25";
-    unsigned char version = 0x01;
+    unsigned char version = 1;
     if ((arch = fopen(fileName, "wb")) == NULL)
         printf("Error al crear el archivo %s : ", fileName);
     else {
+
         fwrite(header, sizeof(char), 5, arch);
         fwrite(&version, sizeof(char), 1, arch);
 
-        uint16_t tamMem = (uint16_t)mv->tamanioMemoria;
-        fwrite(&tamMem, sizeof(uint16_t), 1, arch);
-
-        fwrite(mv->registros, sizeof(uint32_t), NUM_REGISTROS, arch);
-
-        for (int i = 0; i < 8; i++) {
-            fwrite(&mv->TS[i][0], sizeof(uint16_t), 1, arch);
-            fwrite(&mv->TS[i][1], sizeof(uint16_t), 1, arch);
+        char tamMemoria[] = {(mv->tamanioMemoria & 0x0000FF00) >> 8, mv->tamanioMemoria & 0x000000FF};
+        fwrite(tamMemoria, 1, 2, arch);
+        for (int i = 0; i < 32; i++)
+        {
+            printf("Registro %d: %08X\n", i, mv->registros[i]);
+        }
+        // fwrite(mv->registros, sizeof(uint32_t), NUM_REGISTROS, arch);
+        for(int i = 0; i < NUM_REGISTROS; i++){
+            char registro[] = {(mv->registros[i]>>24)&0xFF,
+                                (mv->registros[i]>>16)&0xFF,
+                                (mv->registros[i]>>8)&0xFF,
+                                (mv->registros[i])&0xFF};
+            fwrite(registro, 1, 4, arch);
         }
 
+        for(int i = 0; i < 8; i++){
+            char segmento[] = {(mv->TS[i][0]>>8)&0xFF,
+                                mv->TS[i][0] & 0xFF,
+                                (mv->TS[i][1]>>8)&0xFF,
+                                mv->TS[i][1] & 0xFF};
+            fwrite(segmento, 1, 4, arch);
+        }
+        
+        // for (int i = 0; i < 8; i++) {
+        //     fwrite(&mv->TS[i][0], sizeof(uint16_t), 1, arch);
+        //     fwrite(&mv->TS[i][1], sizeof(uint16_t), 1, arch);
+        // }
+    
         fwrite(mv->memoria, 1, mv->tamanioMemoria, arch);
-
         fclose(arch);
     }
 }

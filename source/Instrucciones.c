@@ -469,12 +469,21 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
             SetearAccesoMemoria(programa, (0x13 << 16) + (programa->registros[EDX] & 0xFFFF), (programa->registros[ECX] & 0xFFFF) , direccion_fisica);
             programa->registros[MBR] = 0;
 
-        char cadena[programa->registros[ECX] + 1];
-        scanf("%s",cadena);
+        char cadena[1000];
+        fgets(cadena,1000,stdin);
         //plantear como se carga el MBR
         int i;
-        for (i=0; i<programa->registros[ECX]; i++){
-            programa->memoria[direccion_fisica + i] = cadena[i];
+        if ((programa->registros[ECX] & 0xFFFF) != 0xFFFF){
+            for (i=0; i<programa->registros[ECX]; i++){
+                programa->memoria[direccion_fisica + i] = cadena[i];
+            }
+        }
+        else {
+            int i=0;
+            while (cadena[i] != '\0'){
+                programa->memoria[direccion_fisica + i] = cadena[i];
+                i++;
+            }
         }
         programa->memoria[direccion_fisica + i] = '\0';
     }

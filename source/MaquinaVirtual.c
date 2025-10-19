@@ -14,6 +14,12 @@ int main(int argc, char *argv[])
     leerParametros(argc, argv, &parametros);
 
     mv.tamanioMemoria = parametros.tamanioMemoria;
+    mv.memoria = (char *)malloc(mv.tamanioMemoria);
+    if (mv.memoria == NULL) {
+        fprintf(stderr, "ERROR: no se pudo asignar memoria\n");
+        //fclose(arch);
+        exit(1);
+    }
     crearParamSegment(&mv, &parametros);
 
 
@@ -21,7 +27,7 @@ int main(int argc, char *argv[])
     {
         mv.nombreVMX = parametros.vmxfile;
         leerVMX(parametros.vmxfile, &mv);
-        if (parametros.vmifile) 
+        if (parametros.vmifile)
             mv.nombreVMI = parametros.vmifile;
         else
             mv.nombreVMI = NULL;
@@ -186,16 +192,16 @@ int leerVMX(const char *filename, tipoMV *mv)
                 }
                 tamaniosSeg[i] = (buffer[0] << 8) | buffer[1];
             }
-            
-            mv->memoria = (char *)malloc(mv->tamanioMemoria);
+
+            /*mv->memoria = (char *)malloc(mv->tamanioMemoria);
             if (mv->memoria == NULL) {
                 fprintf(stderr, "ERROR: no se pudo asignar memoria\n");
                 fclose(arch);
                 exit(1);
-            }
-            
+            }*/
+
             iniciarTablaSegmentos(mv, tamaniosSeg, 5);
-                                    
+
             unsigned char entryPoint[2];
             if (fread(entryPoint, sizeof(char), 2, arch) != 2) {
                 printf("ERROR: no se pudo leer el entry point\n");
@@ -236,7 +242,7 @@ void leerVMI(tipoMV *mv, char *fileName) {
         printf("Error al abrir el archivo %s : ", fileName);
     else {
         fread(header, sizeof(char), 5, arch);
-        header[5] = '\0';  
+        header[5] = '\0';
 
         if (strcmp(header, IDENTIFICADOR_VMI) != 0) {
             printf("Archivo no valido: identificador incorrecto (%s)\n", header);
@@ -296,12 +302,12 @@ void crearVMI(tipoMV *mv, char *fileName) {
                                 mv->TS[i][1] & 0xFF};
             fwrite(segmento, 1, 4, arch);
         }
-        
+
         // for (int i = 0; i < 8; i++) {
         //     fwrite(&mv->TS[i][0], sizeof(uint16_t), 1, arch);
         //     fwrite(&mv->TS[i][1], sizeof(uint16_t), 1, arch);
         // }
-    
+
         fwrite(mv->memoria, 1, mv->tamanioMemoria, arch);
         fclose(arch);
     }
@@ -568,24 +574,24 @@ void ejecutar_maquina(tipoMV *mv)
 
     while ((mv->registros[IP] < (( mv->registros[CS] + mv->TS[mv->registros[IP] >> 16][1] ))) && (mv->registros[IP] != -1))
     {
-        printf("\n--- Estado de la Maquina Virtual ---\n");
-        printf("IP: %08X\n", mv->registros[IP]);
-        
+        /*printf("\n--- Estado de la Maquina Virtual ---\n");
+        printf("IP: %08X\n", mv->registros[IP]);*/
+
         char opcionDebug;
         if (mv->breakpointFlag == 1)
         {
             scanf("%c", &opcionDebug);
-            getchar(); 
+            getchar();
             switch (opcionDebug)
             {
             case 'g':
             {
                 mv->breakpointFlag = 0;
-                break; 
+                break;
             }
             case 'q':
             {
-                exit(0); 
+                exit(0);
                 break;
             }
             default:

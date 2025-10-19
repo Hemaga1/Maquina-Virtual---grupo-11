@@ -130,8 +130,8 @@ int leerVMX(const char *filename, tipoMV *mv, Tparametros *parametros)
     else
     {
         printf("Leyendo archivo VMX: %s\n", filename);
-        fread(&(mv->version), 1, 1, arch);
-        if (mv->version == 1)
+        fread(&(mv->versionVMX), 1, 1, arch);
+        if (mv->versionVMX == 1)
         {
             fread(tamanios, sizeof(char), 2, arch);
             high = tamanios[0] & 0x0FF;
@@ -167,7 +167,7 @@ int leerVMX(const char *filename, tipoMV *mv, Tparametros *parametros)
 
             InicializarRegistros(mv->registros);
         }
-        else if (mv->version == 2){
+        else if (mv->versionVMX == 2){
 
 
             fread(tamanios, sizeof(char), 2, arch);
@@ -232,7 +232,7 @@ int leerVMX(const char *filename, tipoMV *mv, Tparametros *parametros)
 
         }
         else {
-            printf("ERROR: versión de archivo incorrecta (%d)\n", mv->version);
+            printf("ERROR: versión de archivo incorrecta (%d)\n", mv->versionVMX);
             exit(1);
         }
         mv->breakpointFlag = 0;
@@ -244,7 +244,7 @@ int leerVMX(const char *filename, tipoMV *mv, Tparametros *parametros)
 
 void leerVMI(tipoMV *mv, char *fileName) {
     FILE *arch = fopen(fileName, "rb");
-    unsigned char header[6], version;   
+    unsigned char header[6], version;
 
     if (arch == NULL)
         printf("Error al abrir el archivo %s : ", fileName);
@@ -265,12 +265,12 @@ void leerVMI(tipoMV *mv, char *fileName) {
         }
         else
         {
-
+            mv->versionVMI = 1;
             unsigned char tamMemoria[2];
             fread(tamMemoria, 1, 2, arch);
             mv->tamanioMemoria = (tamMemoria[0] << 8) | tamMemoria[1];
             printf("Tamaño de memoria VMI: %d bytes\n", mv->tamanioMemoria);
-            mv->memoria = (char *)malloc(mv->tamanioMemoria);           
+            mv->memoria = (char *)malloc(mv->tamanioMemoria);
             if (mv->memoria == NULL) {
                 fprintf(stderr, "ERROR: no se pudo asignar memoria\n");
                 fclose(arch);
@@ -289,7 +289,7 @@ void leerVMI(tipoMV *mv, char *fileName) {
                 mv->TS[i][0] = (t_segmento[0]<<8) | t_segmento[1];
                 mv->TS[i][1] = (t_segmento[2]<<8) | t_segmento[3];
             }
-       
+
 
             fread(mv->memoria, 1, mv->tamanioMemoria, arch);
 
@@ -589,7 +589,7 @@ void ejecutar_maquina(tipoMV *mv)
 
 
 
-    if (mv->version == 2){
+    if (mv->versionVMX == 2){
         if (mv->registros[PS]!= -1){
             pushearValor(mv,mv->argv);
             pushearValor(mv,mv->argc);
@@ -597,11 +597,11 @@ void ejecutar_maquina(tipoMV *mv)
         pushearValor(mv,-1);
     }
 
+
     while ((mv->registros[IP] < (( mv->registros[CS] + mv->TS[mv->registros[IP] >> 16][1] ))) && (mv->registros[IP] != -1))
     {
         /*printf("\n--- Estado de la Maquina Virtual ---\n");
         printf("IP: %08X\n", mv->registros[IP]);*/
-        printf("IP: %08X | ", mv->registros[IP]);
         char opcionDebug;
         if (mv->breakpointFlag == 1)
         {
@@ -626,6 +626,7 @@ void ejecutar_maquina(tipoMV *mv)
             }
             }
         }
+
         // LECTURA INSTRUCCION
         uint32_t posicion = getDireccionFisica(*mv,mv->registros[IP]);
         instruccion = mv->memoria[posicion];
@@ -649,7 +650,8 @@ void ejecutar_maquina(tipoMV *mv)
         // EJECUCION INSTRUCCION
 
         uint32_t aux =mv->registros[OPC];
-    
+
+
         if (mv->registros[OPC] >= 0 && mv->registros[OPC] < NUM_INSTRUCCIONES && operaciones[mv->registros[OPC]] != NULL)
             operaciones[mv->registros[OPC]](mv, mv->registros[OP1], mv->registros[OP2]);
         else {
@@ -725,7 +727,7 @@ uint32_t getValorCargar(tipoMV *programa, uint32_t OP){
 
     if (tipo_op == 3){
         uint8_t cant_bytes = 4;
-        if (programa->version == 2)
+        if ((programa->versionVMX == 2) || (programa->versionVMI == 1))
            cant_bytes -= ((OP & 0xC00000) >> 22);
 
         if ((OP & 0x1F0000) >> 16){
@@ -746,7 +748,7 @@ uint32_t getValorCargar(tipoMV *programa, uint32_t OP){
     }
     else
         if (tipo_op == 1){
-            if (programa->version == 2){
+            if ((programa->versionVMX == 2) || (programa->versionVMI == 1)){
                 uint32_t res;
                 switch ((OP & 0xC0) >> 6){
                     case 0b00: res = programa->registros[OP & 0x1F];
@@ -771,7 +773,7 @@ void setOperando(tipoMV *programa, uint32_t OP, uint32_t valor_cargar){
 
     if (tipo_op == 3){
         uint8_t cant_bytes = 4;
-        if (programa->version == 2)
+        if ((programa->versionVMX == 2) || (programa->versionVMI == 1))
            cant_bytes -= ((OP & 0xC00000) >> 22);
 
         if ((OP & 0x1F0000) >> 16){
@@ -791,7 +793,7 @@ void setOperando(tipoMV *programa, uint32_t OP, uint32_t valor_cargar){
         }
     }
     else {
-        if (programa->version == 2){
+        if ((programa->versionVMX == 2) || (programa->versionVMI == 1)){
             switch ((OP & 0xC0)>>6){
                 case 0b00: programa->registros[OP & 0x1F] = valor_cargar;
                     break;

@@ -59,7 +59,8 @@ typedef struct MV
     uint32_t argv;
     char *nombreVMX;
     char *nombreVMI;
-    char version;
+    char versionVMX;
+    char versionVMI;
     int breakpointFlag;
 } tipoMV;
 

@@ -10,23 +10,12 @@ int main(int argc, char *argv[])
 {
     tipoMV mv;
     Tparametros parametros;
-
     leerParametros(argc, argv, &parametros);
-
     mv.tamanioMemoria = parametros.tamanioMemoria;
-    mv.memoria = (char *)malloc(mv.tamanioMemoria);
-    if (mv.memoria == NULL) {
-        fprintf(stderr, "ERROR: no se pudo asignar memoria\n");
-        //fclose(arch);
-        exit(1);
-    }
-    crearParamSegment(&mv, &parametros);
-
-
     if (parametros.vmxfile)
     {
         mv.nombreVMX = parametros.vmxfile;
-        leerVMX(parametros.vmxfile, &mv);
+        leerVMX(parametros.vmxfile, &mv, &parametros);
         if (parametros.vmifile)
             mv.nombreVMI = parametros.vmifile;
         else
@@ -112,7 +101,7 @@ void crearParamSegment(tipoMV *mv, Tparametros *parametros) {
     }
 }
 
-int leerVMX(const char *filename, tipoMV *mv)
+int leerVMX(const char *filename, tipoMV *mv, Tparametros *parametros)
 {
     printf("Leyendo archivo VMX: %s\n", filename);
     FILE *arch = fopen(filename, "rb");
@@ -162,6 +151,14 @@ int leerVMX(const char *filename, tipoMV *mv)
                 return 0;
             }
 
+            /* reservar memoria para todo el espacio de la MV antes de leer el code segment */
+            mv->memoria = (char *)malloc(mv->tamanioMemoria);
+            if (mv->memoria == NULL) {
+                fprintf(stderr, "ERROR: no se pudo asignar memoria\n");
+                fclose(arch);
+                return 0;
+            }
+
             fread(mv->memoria, 1, tamanioCS, arch);
 
             mv->TS[0][1] = mv->TS[1][0] = tamanioCS;
@@ -193,6 +190,16 @@ int leerVMX(const char *filename, tipoMV *mv)
                 tamaniosSeg[i] = (buffer[0] << 8) | buffer[1];
             }
 
+
+                mv->memoria = (char *)malloc(mv->tamanioMemoria);
+                if (mv->memoria == NULL) {
+                    fprintf(stderr, "ERROR: no se pudo asignar memoria\n");
+                    //fclose(arch);
+                    exit(1);
+                }
+                crearParamSegment(mv, parametros);
+
+
             /*mv->memoria = (char *)malloc(mv->tamanioMemoria);
             if (mv->memoria == NULL) {
                 fprintf(stderr, "ERROR: no se pudo asignar memoria\n");
@@ -221,6 +228,7 @@ int leerVMX(const char *filename, tipoMV *mv)
                     fread(&mv->memoria[i], 1, 1, arch);
                 }
             }
+                            mv->registros[IP] = mv->registros[CS];
 
         }
         else {
@@ -236,7 +244,7 @@ int leerVMX(const char *filename, tipoMV *mv)
 
 void leerVMI(tipoMV *mv, char *fileName) {
     FILE *arch = fopen(fileName, "rb");
-    unsigned char header[6], version;
+    unsigned char header[6], version;   
 
     if (arch == NULL)
         printf("Error al abrir el archivo %s : ", fileName);
@@ -257,17 +265,38 @@ void leerVMI(tipoMV *mv, char *fileName) {
         }
         else
         {
-            fread(&mv->tamanioMemoria, 2, 1, arch);
-            mv->memoria = (char *)malloc(mv->tamanioMemoria);
-            fread(mv->registros, sizeof(uint32_t), NUM_REGISTROS, arch);
-            fread(mv->TS, sizeof(uint16_t), 8 * 2, arch);
-            fread(mv->memoria, 1, mv->tamanioMemoria, arch);
-        }
 
+            unsigned char tamMemoria[2];
+            fread(tamMemoria, 1, 2, arch);
+            mv->tamanioMemoria = (tamMemoria[0] << 8) | tamMemoria[1];
+            printf("Tamaño de memoria VMI: %d bytes\n", mv->tamanioMemoria);
+            mv->memoria = (char *)malloc(mv->tamanioMemoria);           
+            if (mv->memoria == NULL) {
+                fprintf(stderr, "ERROR: no se pudo asignar memoria\n");
+                fclose(arch);
+                exit(1);
+            }
+            // fread(mv->registros, sizeof(uint32_t), NUM_REGISTROS, arch);
+            for(int i = 0; i < NUM_REGISTROS; i++){
+                uint8_t t_registro[4];
+                fread(t_registro, 1, 4, arch);
+                mv->registros[i] = (t_registro[0]<<24) | (t_registro[1]<<16) | (t_registro[2]<<8) | t_registro[3];
+            }
+
+             for(int i = 0; i < 8; i++){
+                uint8_t t_segmento[4];
+                fread(t_segmento, 1, 4, arch);
+                mv->TS[i][0] = (t_segmento[0]<<8) | t_segmento[1];
+                mv->TS[i][1] = (t_segmento[2]<<8) | t_segmento[3];
+            }
+       
+
+            fread(mv->memoria, 1, mv->tamanioMemoria, arch);
+
+        }
         fclose(arch);
     }
 }
-
 
 void crearVMI(tipoMV *mv, char *fileName) {
     FILE *arch;
@@ -282,10 +311,6 @@ void crearVMI(tipoMV *mv, char *fileName) {
 
         char tamMemoria[] = {(mv->tamanioMemoria & 0x0000FF00) >> 8, mv->tamanioMemoria & 0x000000FF};
         fwrite(tamMemoria, 1, 2, arch);
-        for (int i = 0; i < 32; i++)
-        {
-            printf("Registro %d: %08X\n", i, mv->registros[i]);
-        }
         // fwrite(mv->registros, sizeof(uint32_t), NUM_REGISTROS, arch);
         for(int i = 0; i < NUM_REGISTROS; i++){
             char registro[] = {(mv->registros[i]>>24)&0xFF,
@@ -562,7 +587,7 @@ void ejecutar_maquina(tipoMV *mv)
 
     inicioVectorOper(operaciones);
 
-    mv->registros[IP] = mv->registros[CS];
+
 
     if (mv->version == 2){
         if (mv->registros[PS]!= -1){
@@ -576,7 +601,7 @@ void ejecutar_maquina(tipoMV *mv)
     {
         /*printf("\n--- Estado de la Maquina Virtual ---\n");
         printf("IP: %08X\n", mv->registros[IP]);*/
-
+        printf("IP: %08X | ", mv->registros[IP]);
         char opcionDebug;
         if (mv->breakpointFlag == 1)
         {
@@ -624,8 +649,7 @@ void ejecutar_maquina(tipoMV *mv)
         // EJECUCION INSTRUCCION
 
         uint32_t aux =mv->registros[OPC];
-
-
+    
         if (mv->registros[OPC] >= 0 && mv->registros[OPC] < NUM_INSTRUCCIONES && operaciones[mv->registros[OPC]] != NULL)
             operaciones[mv->registros[OPC]](mv, mv->registros[OP1], mv->registros[OP2]);
         else {

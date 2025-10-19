@@ -88,6 +88,7 @@ extern const char *NombreRegistro[32];
 int leerEncabezado(const char *filename, tipoMV *mv);
 
 void leerVMI(tipoMV *mv, char *fileName);
+
 void crearVMI(tipoMV *vm, char *fileName);
 void Disassembler(tipoMV programa);
 void PrintOperando(uint32_t op);
@@ -95,7 +96,7 @@ void InicializarRegistros(uint32_t registros[]);
 void ejecutar_maquina(tipoMV *mv);
 void leerParametros(int argc, char *argv[], Tparametros *parametros);
 void crearParamSegment(tipoMV *mv, Tparametros *parametros);
-int leerVMX(const char *filename, tipoMV *mv);
+int leerVMX(const char *filename, tipoMV *mv, Tparametros *parametros);
 void iniciarTablaSegmentos(tipoMV *mv, uint16_t sizes[], unsigned short int cantSegments);
 
 uint8_t getTipoOperando(uint32_t op);

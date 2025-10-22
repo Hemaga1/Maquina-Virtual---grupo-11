@@ -360,24 +360,17 @@ void RND(tipoMV *programa, uint32_t op1, uint32_t op2){
 void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
     programa->registros[OP1] = op2;
     programa->registros[OP2] = 0;
-    // char cadena[33];
-    // uint32_t direccion_fisica = getDireccionFisica(*programa,programa->registros[EDX]);
-    // uint16_t formato = programa->registros[EAX];
-    // SetearAccesoMemoria(programa, (0x13 << 16) + (programa->registros[EDX] & 0xFFFF), (programa->registros[ECX] & 0xFFFF) , direccion_fisica);
-    // programa->registros[MBR] = 0;
 
     if ((programa->registros[OP1] & 0xFFFF) == 1){
             char cadena[33];
             uint32_t direccion_fisica = getDireccionFisica(*programa,programa->registros[EDX]);
             uint16_t formato = programa->registros[EAX];
-            SetearAccesoMemoria(programa, (0x13 << 16) + (programa->registros[EDX] & 0xFFFF), (programa->registros[ECX] & 0xFFFF) , direccion_fisica);
-            programa->registros[MBR] = 0;
 
         for (int i=0;i<(programa->registros[ECX] & 0xFFFF);i++){
 
             formato = programa->registros[EAX];
 
-            SetearAccesoMemoria(programa, (0x13 << 16) + (programa->registros[EDX] & 0xFFFF), (programa->registros[ECX] & 0xFFFF) , direccion_fisica);
+            SetearAccesoMemoria(programa, (13 << 16) + (programa->registros[EDX] & 0xFFFF), (programa->registros[ECX] >> 16), direccion_fisica);
 
             programa->registros[MBR] = 0;
 
@@ -398,12 +391,12 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
                     }
                 formato = formato >> 1;
 
-                for (int j=0; j<((programa->registros[ECX] & 0xFFFF0000) >> 16); j++){
-                    programa->memoria[direccion_fisica + ((programa->registros[ECX] & 0xFFFF0000) >> 16) - 1 - j] = ((programa->registros[MBR] & (0xFF << (j*8))) >> (j*8));
+                for (int j=0; j<(programa->registros[ECX] >> 16); j++){
+                    programa->memoria[direccion_fisica + (programa->registros[ECX] >> 16) - 1 - j] = ((programa->registros[MBR] & (0xFF << (j*8))) >> (j*8));
                 }
 
             }
-            direccion_fisica += ((programa->registros[ECX] & 0xFFFF0000) >> 16);
+            direccion_fisica += (programa->registros[ECX] >> 16);
         }
         printf("\n");
     }
@@ -411,20 +404,18 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
             char cadena[33];
             uint32_t direccion_fisica = getDireccionFisica(*programa,programa->registros[EDX]);
             uint16_t formato = programa->registros[EAX];
-            SetearAccesoMemoria(programa, (0x13 << 16) + (programa->registros[EDX] & 0xFFFF), (programa->registros[ECX] & 0xFFFF) , direccion_fisica);
             programa->registros[MBR] = 0;
 
         for (int i=0; i<(programa->registros[ECX] & 0xFFFF); i++){
 
             formato = programa->registros[EAX];
 
-            SetearAccesoMemoria(programa, (0x13 << 16) + (programa->registros[EDX] & 0xFFFF), (programa->registros[ECX] & 0xFFFF) , direccion_fisica);
+            SetearAccesoMemoria(programa, (13 << 16) + (programa->registros[EDX] & 0xFFFF),(programa->registros[ECX] >> 16), direccion_fisica);
 
             programa->registros[MBR] = 0;
 
-            uint8_t size = (programa->registros[ECX] & 0xFFFF0000) >> 16;
-            for (int j = 0; j < size; j++) {
-                programa->registros[MBR] += (programa->memoria[direccion_fisica + size - 1 - j] << (j * 8));
+            for (int j = 0; j < (programa->registros[ECX] >> 16); j++) {
+                programa->registros[MBR] += (programa->memoria[direccion_fisica + (programa->registros[ECX] >> 16) - 1 - j] << (j * 8));
             }
 
 
@@ -439,7 +430,7 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
                                     printf("%d ",programa->registros[MBR]);
                                 break;
                         case 1:
-                                for (int g=((programa->registros[ECX] & 0xFFFF0000) >> 16)-1; g>-1; g--){
+                                for (int g =(programa->registros[ECX] >> 16) - 1; g > -1 ; g--){
                                     if (((programa->registros[MBR] & (0xFF << (g*8))) >> (g*8) < 255) && isprint((programa->registros[MBR] & (0xFF << (g*8))) >> (g*8)))
                                         printf("%c",(programa->registros[MBR] & (0xFF << (g*8))) >> (g*8));
                                     else {
@@ -460,58 +451,58 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
 
             printf("\n");
 
-            direccion_fisica += ((programa->registros[ECX] & 0xFFFF0000) >> 16);
+            direccion_fisica += (programa->registros[ECX] >> 16);
         }
     }
     else if ((programa->registros[OP1] & 0xFFFF) == 3) {
             uint32_t direccion_fisica = getDireccionFisica(*programa,programa->registros[EDX]);
             uint16_t formato = programa->registros[EAX];
-            SetearAccesoMemoria(programa, (0x13 << 16) + (programa->registros[EDX] & 0xFFFF), (programa->registros[ECX] & 0xFFFF) , direccion_fisica);
-            programa->registros[MBR] = 0;
 
-        char cadena[1000];
-        fgets(cadena,1000,stdin);
-        //plantear como se carga el MBR
-        int i;
-        if ((programa->registros[ECX] & 0xFFFF) != 0xFFFF){
-            for (i=0; i<programa->registros[ECX]; i++){
-                programa->memoria[direccion_fisica + i] = cadena[i];
+            char cadena[1000];
+            fgets(cadena,1000,stdin);
+            int i;
+            if ((programa->registros[ECX] & 0xFFFF) != 0xFFFF){
+                for (i=0; i<programa->registros[ECX]; i++){
+                    programa->registros[MBR] = cadena[i];
+                    SetearAccesoMemoria(programa, (13 << 16) + (programa->registros[EDX] & 0xFFFF) + i, 1 , direccion_fisica + i);
+                    programa->memoria[direccion_fisica + i] = cadena[i];
+                }
             }
-        }
-        else {
+            else {
+                int i=0;
+                while (cadena[i] != '\0'){
+                    programa->registros[MBR] = cadena[i];
+                    SetearAccesoMemoria(programa, (0x13 << 16) + (programa->registros[EDX] & 0xFFFF) + i, 1 , direccion_fisica + i);
+                    programa->memoria[direccion_fisica + i] = cadena[i];
+                    i++;
+                }
+            }
+            programa->memoria[direccion_fisica + i] = '\0';
+    }
+    else if ((programa->registros[OP1] & 0xFFFF) == 4) {
+
+            uint32_t direccion_fisica = getDireccionFisica(*programa,programa->registros[EDX]);
+            uint16_t formato = programa->registros[EAX];
+
+            printf("[%04X]: ",direccion_fisica);
+
+
             int i=0;
-            while (cadena[i] != '\0'){
-                programa->memoria[direccion_fisica + i] = cadena[i];
+            char caracter = ' ';
+            while ((caracter != '\0') && (i < programa->registros[ECX])){
+                SetearAccesoMemoria(programa, (13 << 16) + (programa->registros[EDX] & 0xFFFF) + i, 1 , direccion_fisica + i);
+                caracter = programa->memoria[direccion_fisica + i];
+                programa->registros[MBR] = caracter;
+                printf("%c",caracter);
                 i++;
             }
-        }
-        programa->memoria[direccion_fisica + i] = '\0';
+            printf("\n");
     }
-    if ((programa->registros[OP1] & 0xFFFF) == 4) {
-
-    uint32_t direccion_fisica = getDireccionFisica(*programa,programa->registros[EDX]);
-    uint16_t formato = programa->registros[EAX];
-    SetearAccesoMemoria(programa, (0x13 << 16) + (programa->registros[EDX] & 0xFFFF), (programa->registros[ECX] & 0xFFFF) , direccion_fisica);
-    programa->registros[MBR] = 0;
-
-        printf("[%04X]: ",direccion_fisica);
-
-
-        int i=0;
-        //plantear como se carga el MBR
-        char caracter = ' ';
-        while ((caracter != '\0') && (i < programa->registros[ECX])){
-            caracter = programa->memoria[direccion_fisica + i];
-            printf("%c",caracter);
-            i++;
-        }
-    }
-    else
-    if ((programa->registros[OP1] & 0xFFFF) == 7){
-        system("cls");
+    else if ((programa->registros[OP1] & 0xFFFF) == 7){
+                system("cls");
     }
     else if ((programa->registros[OP1] & 0xFFFF) == 15) {
-        breakpoint(programa);
+                breakpoint(programa);
     }
 }
 

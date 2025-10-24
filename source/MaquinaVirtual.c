@@ -886,7 +886,7 @@ void pushearValor(tipoMV *programa, uint32_t valor){
     uint32_t direccion_fisica;
 
     programa->registros[SP] -= 4;
-    if ((programa->registros[SP] & 0xFFFF) < 0){
+    if (programa->registros[SP] < programa->registros[SS]){
         printf("ERROR: STACK OVERFLOW.\n");
         exit(1);
     }

@@ -586,7 +586,7 @@ void PUSH(tipoMV *programa, uint32_t op1, uint32_t op2){
     programa->registros[OP2] = 0;
 
     programa->registros[SP] -= 4;
-    if ((programa->registros[SP] & 0xFFFF) < 0){
+    if (programa->registros[SP] < programa->registros[SS]){
         printf("ERROR: STACK OVERFLOW.\n");
         exit(1);
     }

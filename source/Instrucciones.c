@@ -198,7 +198,7 @@ void DIV(tipoMV *programa , uint32_t op1, uint32_t op2){
 
     }
     else {
-        printf("ERROR: Division por 0\n");
+        printf("ERROR: Division por 0.\n");
         exit(1);
     }
 }
@@ -374,6 +374,8 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
 
             programa->registros[MBR] = 0;
 
+            printf(" [%04X] ",direccion_fisica);
+
 
             for (int k=0;k<5;k++){
                 if (formato & 1)
@@ -419,7 +421,7 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
             }
 
 
-            printf("[%04X]: ",direccion_fisica);
+            printf(" [%04X] ",direccion_fisica);
 
             for (int k=4;k>-1;k--){
                 if (formato & 0x10)
@@ -458,6 +460,8 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
             uint32_t direccion_fisica = getDireccionFisica(*programa,programa->registros[EDX]);
             uint16_t formato = programa->registros[EAX];
 
+            printf(" [%04X] ",direccion_fisica);
+
             char cadena[1000];
             fgets(cadena,1000,stdin);
             int i;
@@ -484,7 +488,7 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
             uint32_t direccion_fisica = getDireccionFisica(*programa,programa->registros[EDX]);
             uint16_t formato = programa->registros[EAX];
 
-            printf("[%04X]: ",direccion_fisica);
+            printf(" [%04X] ",direccion_fisica);
 
 
             int i=0;
@@ -507,13 +511,12 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
 }
 
 void breakpoint(tipoMV *mv){
-    if (mv->nombreVMI != NULL){
-            crearVMI(mv, mv->nombreVMI);
-            mv->breakpointFlag = 1;
-        }
-    else {
-        printf("No se ha abierto ningun archivo VMI para guardar la imagen de la VM.\n");
+    if (mv->nombreVMI == NULL){
+        mv->nombreVMI = mv->nombreVMX;
+        mv->nombreVMI[strlen(mv->nombreVMI)-1] = 'i';
     }
+    crearVMI(mv, mv->nombreVMI);
+    mv->breakpointFlag = 1;
 }
 
 void JMP(tipoMV *programa, uint32_t op1, uint32_t op2){
@@ -584,7 +587,7 @@ void PUSH(tipoMV *programa, uint32_t op1, uint32_t op2){
 
     programa->registros[SP] -= 4;
     if ((programa->registros[SP] & 0xFFFF) < 0){
-        printf("STACK OVERFLOW\n");
+        printf("ERROR: STACK OVERFLOW.\n");
         exit(1);
     }
     else {
@@ -619,7 +622,7 @@ void POP(tipoMV *programa, uint32_t op1, uint32_t op2){
     programa->registros[SP] += 4;
 
     if ((programa->registros[SP] & 0xFFFF) > programa->TS[programa->registros[SS] >> 16][1]){
-        printf("STACK UNDERFLOW\n");
+        printf("ERROR: STACK UNDERFLOW.\n");
         exit(1);
     }
 
@@ -650,7 +653,7 @@ void RET(tipoMV *programa, uint32_t op1, uint32_t op2){
 
 
     if ((programa->registros[SP] & 0xFFFF) > programa->TS[programa->registros[SS] >> 16][1]){
-        printf("STACK UNDERFLOW\n");
+        printf("ERROR: STACK UNDERFLOW.\n");
         exit(1);
     }
 }

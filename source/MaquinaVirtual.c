@@ -20,7 +20,6 @@ int main(int argc, char *argv[])
             mv.nombreVMI = parametros.vmifile;
         else
             mv.nombreVMI = NULL;
-
     }
     else if (parametros.vmifile) {
         mv.nombreVMI = parametros.vmifile;
@@ -28,7 +27,7 @@ int main(int argc, char *argv[])
     }
     else
     {
-        printf("No se ingreso el archivo .vmx o .vmi\n");
+        printf("ERROR: No se ingreso el archivo .vmx o .vmi.\n");
         return 1;
     }
     if (parametros.disassembler)
@@ -60,7 +59,8 @@ void leerParametros(int argc, char *argv[], Tparametros *parametros) {
             }
             break;
         } else {
-            printf("Argumento desconocido: %s\n", argv[i]);
+            printf("ERROR: Argumento desconocido: %s.\n", argv[i]);
+            exit(1);
         }
     }
 }
@@ -112,7 +112,7 @@ int leerVMX(const char *filename, tipoMV *mv, Tparametros *parametros)
 
     if (!arch)
     {
-        printf("No se pudo abrir el archivo");
+        printf("ERROR: No se pudo abrir el archivo.");
         exit(1);
     }
 
@@ -123,13 +123,12 @@ int leerVMX(const char *filename, tipoMV *mv, Tparametros *parametros)
     // Verificar que el identificador sea correcto
     if (strcmp(id, IDENTIFICADOR) != 0)
     {
-        fprintf(stderr, "Archivo no valido: identificador incorrecto (%s)\n", mv->nombreVMX);
+        fprintf(stderr, "ERROR: Archivo no valido: identificador incorrecto (%s).\n", mv->nombreVMX);
         fclose(arch);
-        return 0;
+        exit(1);
     }
     else
     {
-        printf("Leyendo archivo VMX: %s\n", filename);
         fread(&(mv->versionVMX), 1, 1, arch);
         if (mv->versionVMX == 1)
         {
@@ -138,25 +137,19 @@ int leerVMX(const char *filename, tipoMV *mv, Tparametros *parametros)
             low = tamanios[1] & 0x0FF;
             tamanioCS = ((high << 8) | low);
 
-            mv->registros[CS] = 0x0000;
-            mv->registros[PS] = -1;
-            mv->registros[KS] = -1;
-            mv->registros[ES] = -1;
-            mv->registros[SS] = -1;
-
             if (tamanioCS > mv->tamanioMemoria)
             {
                 fclose(arch);
-                printf("Error: Tamanio de code segment excede la memoria de la maquina virtual\n");
-                return 0;
+                printf("ERROR: Tamanio de code segment excede la memoria de la maquina virtual.\n");
+                exit(1);
             }
 
             /* reservar memoria para todo el espacio de la MV antes de leer el code segment */
             mv->memoria = (char *)malloc(mv->tamanioMemoria);
             if (mv->memoria == NULL) {
-                fprintf(stderr, "ERROR: no se pudo asignar memoria\n");
+                fprintf(stderr, "ERROR: No se pudo asignar memoria.\n");
                 fclose(arch);
-                return 0;
+                exit(1);
             }
 
             fread(mv->memoria, 1, tamanioCS, arch);
@@ -166,6 +159,7 @@ int leerVMX(const char *filename, tipoMV *mv, Tparametros *parametros)
             mv->TS[1][1] = mv->tamanioMemoria;
 
             InicializarRegistros(mv->registros);
+
         }
         else if (mv->versionVMX == 2){
 
@@ -183,7 +177,7 @@ int leerVMX(const char *filename, tipoMV *mv, Tparametros *parametros)
                 unsigned char buffer[2];
                 if (fread(buffer, sizeof(char), 2, arch) != 2)
                 {
-                    fprintf(stderr, "ERROR: no se pudo leer tamaño de segmento\n");
+                    fprintf(stderr, "ERROR: No se pudo leer tamaño de segmento.\n");
                     fclose(arch);
                     exit(1);
                 }
@@ -193,25 +187,20 @@ int leerVMX(const char *filename, tipoMV *mv, Tparametros *parametros)
 
                 mv->memoria = (char *)malloc(mv->tamanioMemoria);
                 if (mv->memoria == NULL) {
-                    fprintf(stderr, "ERROR: no se pudo asignar memoria\n");
-                    //fclose(arch);
+                    fprintf(stderr, "ERROR: No se pudo asignar memoria.\n");
+                    fclose(arch);
                     exit(1);
                 }
                 crearParamSegment(mv, parametros);
 
 
-            /*mv->memoria = (char *)malloc(mv->tamanioMemoria);
-            if (mv->memoria == NULL) {
-                fprintf(stderr, "ERROR: no se pudo asignar memoria\n");
-                fclose(arch);
-                exit(1);
-            }*/
 
             iniciarTablaSegmentos(mv, tamaniosSeg, 5);
 
             unsigned char entryPoint[2];
             if (fread(entryPoint, sizeof(char), 2, arch) != 2) {
-                printf("ERROR: no se pudo leer el entry point\n");
+                printf("ERROR: No se pudo leer el entry point\n");
+                fclose(arch);
                 exit(1);
             }
             unsigned int tamanioEntryPoint = (entryPoint[0] << 8) | entryPoint[1];
@@ -228,11 +217,12 @@ int leerVMX(const char *filename, tipoMV *mv, Tparametros *parametros)
                     fread(&mv->memoria[i], 1, 1, arch);
                 }
             }
-                            mv->registros[IP] = mv->registros[CS];
+            mv->registros[IP] = mv->registros[CS];
 
         }
         else {
-            printf("ERROR: versión de archivo incorrecta (%d)\n", mv->versionVMX);
+            printf("ERROR: Versión de archivo incorrecta (%d).\n", mv->versionVMX);
+            fclose(arch);
             exit(1);
         }
         mv->breakpointFlag = 0;
@@ -247,20 +237,20 @@ void leerVMI(tipoMV *mv, char *fileName) {
     unsigned char header[6], version;
 
     if (arch == NULL)
-        printf("Error al abrir el archivo %s : ", fileName);
+        printf("ERROR: No se pudo abrir el archivo.");
     else {
         fread(header, sizeof(char), 5, arch);
         header[5] = '\0';
 
         if (strcmp(header, IDENTIFICADOR_VMI) != 0) {
-            printf("Archivo no valido: identificador incorrecto (%s)\n", header);
+            printf("ERROR: Archivo no valido: identificador incorrecto (%s).\n", header);
             exit(1);
         }
 
         fread(&version, sizeof(char), 1, arch);
 
         if (version != 0x01) {
-            printf("Error: versión de archivo incorrecta (%d)\n", version);
+            printf("ERROR: Versión de archivo incorrecta (%d).\n", version);
             exit(1);
         }
         else
@@ -269,14 +259,13 @@ void leerVMI(tipoMV *mv, char *fileName) {
             unsigned char tamMemoria[2];
             fread(tamMemoria, 1, 2, arch);
             mv->tamanioMemoria = (tamMemoria[0] << 8) | tamMemoria[1];
-            printf("Tamaño de memoria VMI: %d bytes\n", mv->tamanioMemoria);
             mv->memoria = (char *)malloc(mv->tamanioMemoria);
             if (mv->memoria == NULL) {
-                fprintf(stderr, "ERROR: no se pudo asignar memoria\n");
+                fprintf(stderr, "ERROR: No se pudo asignar memoria.\n");
                 fclose(arch);
                 exit(1);
             }
-            // fread(mv->registros, sizeof(uint32_t), NUM_REGISTROS, arch);
+
             for(int i = 0; i < NUM_REGISTROS; i++){
                 uint8_t t_registro[4];
                 fread(t_registro, 1, 4, arch);
@@ -303,7 +292,7 @@ void crearVMI(tipoMV *mv, char *fileName) {
     unsigned char header[6] = "VMI25";
     unsigned char version = 1;
     if ((arch = fopen(fileName, "wb")) == NULL)
-        printf("Error al crear el archivo %s : ", fileName);
+        printf("ERROR: No se pudo crear o abrir el archivo.", fileName);
     else {
 
         fwrite(header, sizeof(char), 5, arch);
@@ -311,7 +300,6 @@ void crearVMI(tipoMV *mv, char *fileName) {
 
         char tamMemoria[] = {(mv->tamanioMemoria & 0x0000FF00) >> 8, mv->tamanioMemoria & 0x000000FF};
         fwrite(tamMemoria, 1, 2, arch);
-        // fwrite(mv->registros, sizeof(uint32_t), NUM_REGISTROS, arch);
         for(int i = 0; i < NUM_REGISTROS; i++){
             char registro[] = {(mv->registros[i]>>24)&0xFF,
                                 (mv->registros[i]>>16)&0xFF,
@@ -328,10 +316,6 @@ void crearVMI(tipoMV *mv, char *fileName) {
             fwrite(segmento, 1, 4, arch);
         }
 
-        // for (int i = 0; i < 8; i++) {
-        //     fwrite(&mv->TS[i][0], sizeof(uint16_t), 1, arch);
-        //     fwrite(&mv->TS[i][1], sizeof(uint16_t), 1, arch);
-        // }
 
         fwrite(mv->memoria, 1, mv->tamanioMemoria, arch);
         fclose(arch);
@@ -387,29 +371,78 @@ void iniciarTablaSegmentos(tipoMV *mv, uint16_t sizes[], unsigned short int cant
 
 void Disassembler(tipoMV programa)
 {
-    uint32_t direcBase = getDireccionFisica(programa, programa.registros[CS]);
-    uint32_t dir = direcBase;
+    uint32_t direcBase;
+    uint32_t dir;
     uint32_t cantbytes;
     uint32_t op1, op2;
 
+
+    if (programa.registros[KS] != -1) {
+        direcBase = getDireccionFisica(programa, programa.registros[KS]);
+        dir = direcBase;
+        char cadena[500];
+
+        while (dir < programa.TS[programa.registros[KS] >> 16][1] + direcBase){
+
+
+            printf(" [%04X] ", dir);
+            memset(cadena,0,strlen(cadena));
+            int i = 0;
+
+            while((dir < programa.TS[programa.registros[KS] >> 16][1] + direcBase) && (programa.memoria[dir] != 0 )) {
+                if (i<7)
+                    printf("%02X ", programa.memoria[dir] & 0xFF);
+                else
+                    if (i<8)
+                        printf(".. ");
+                cadena[i] = programa.memoria[dir];
+                i++;
+                dir++;
+            }
+            while (i < 7)
+            {
+                printf("   ");
+                i++;
+            }
+            printf("| ");
+            printf("\"%s\"",cadena);
+            printf("\n");
+            dir++;
+        }
+
+    }
+
+
+    direcBase = getDireccionFisica(programa, programa.registros[CS]);
+    dir = direcBase;
+
     while (dir < programa.TS[programa.registros[CS] >> 16][1] + direcBase)
     {
+        if (dir == programa.TS[programa.registros[CS] >> 16][0])
+            printf(">");
+        else
+            printf(" ");
+
         printf("[%04X] ", dir);
 
         op1 = ((programa.memoria[dir] & 0b110000) >> 4) << 24;
         op2 = ((programa.memoria[dir] & 0b11000000) >> 6) << 24;
 
         cantbytes = (op1 >> 24) + (op2 >> 24) + 1;
-        for (int i = 0; i < cantbytes; i++)
+        for (int i = 0; i < 7; i++)
         {
-            printf("%02X ", programa.memoria[dir + i] & 0xFF);
+            if (i > cantbytes)
+                printf("   ");
+            else
+                if (i<6)
+                    printf("%02X ", programa.memoria[dir + i] & 0xFF);
+                else
+                    if (cantbytes == 6)
+                        printf("%02X ", programa.memoria[dir + i] & 0xFF);
+                    else
+                        printf(".. ");
         }
-        while (cantbytes < 9)
-        {
-            printf("   ");
-            cantbytes++;
-        }
-        printf("| ");
+        printf("|  ");
         uint8_t instruccion = programa.memoria[dir] & 0x1F;
         if (instruccion >= 0 && instruccion < NUM_INSTRUCCIONES) {
             printf("%s ", Mnemonicos[programa.memoria[dir] & 0x1F]);
@@ -529,8 +562,11 @@ void PrintOperando(uint32_t op)
 
 void InicializarRegistros(uint32_t registros[])
 {
-    for (int i = 0; i < 32; i++)
-        registros[i] = 0;
+    registros[CS] = 0x0000;
+    registros[PS] = -1;
+    registros[KS] = -1;
+    registros[ES] = -1;
+    registros[SS] = -1;
     registros[DS] = 0x010000;
     registros[IP] = registros[CS];
 }
@@ -572,7 +608,7 @@ void leerOperando(tipoMV *mv, int TOP, uint32_t Op)
     }
     break;
 
-        printf( "Error: Tipo de operando inválido (%d).\n", TOP);
+        printf( "ERROR: Tipo de operando inválido (%d).\n", TOP);
         exit(1);
     }
 }
@@ -600,8 +636,6 @@ void ejecutar_maquina(tipoMV *mv)
 
     while ((mv->registros[IP] < (( mv->registros[CS] + mv->TS[mv->registros[IP] >> 16][1] ))) && (mv->registros[IP] != -1))
     {
-        /*printf("\n--- Estado de la Maquina Virtual ---\n");
-        printf("IP: %08X\n", mv->registros[IP]);*/
         char opcionDebug;
         if (mv->breakpointFlag == 1)
         {
@@ -652,11 +686,17 @@ void ejecutar_maquina(tipoMV *mv)
         uint32_t aux =mv->registros[OPC];
 
 
-        if (mv->registros[OPC] >= 0 && mv->registros[OPC] < NUM_INSTRUCCIONES && operaciones[mv->registros[OPC]] != NULL)
-            operaciones[mv->registros[OPC]](mv, mv->registros[OP1], mv->registros[OP2]);
+        if (mv->registros[OPC] >= 0 && mv->registros[OPC] < NUM_INSTRUCCIONES && operaciones[mv->registros[OPC]] != NULL){
+            if ( (mv->versionVMX == 1) && (mv->registros[OPC] >= 11 && mv->registros[OPC] <= 14 )){
+                printf("ERROR: Instruccion invalida.\n");
+                exit(1);
+            }
+            else
+                operaciones[mv->registros[OPC]](mv, mv->registros[OP1], mv->registros[OP2]);
+        }
         else {
-            printf("ERROR: Instruccion Invalida.\n");
-            return exit(1);
+            printf("ERROR: Instruccion invalida.\n");
+            exit(1);
         }
     }
 }
@@ -671,7 +711,7 @@ uint32_t getDireccionFisica(tipoMV programa, uint32_t direccion_logica){
 
     // Valida que el segmento exista
     if (segmento >= 8) {
-        printf("Fallo de segmento: segmento %d invalido\n", segmento);
+        printf("ERROR: Fallo de segmento: segmento %d invalido.\n", segmento);
         exit(1);
     }
 
@@ -680,7 +720,7 @@ uint32_t getDireccionFisica(tipoMV programa, uint32_t direccion_logica){
 
     // Valida que el offset esté dentro del límite
     if (offset > limite) {
-        printf("Fallo de segmento: offset 0x%X fuera del limite 0x%X del segmento %u\n",
+        printf("ERROR: Fallo de segmento: offset 0x%X fuera del limite 0x%X del segmento %u.\n",
                offset, limite, segmento);
         exit(1);
     }
@@ -731,6 +771,10 @@ uint32_t getValorCargar(tipoMV *programa, uint32_t OP){
            cant_bytes -= ((OP & 0xC00000) >> 22);
 
         if ((OP & 0x1F0000) >> 16){
+            if ((programa->versionVMX) == 1 && ((((OP & 0x1F0000) >> 16) >= 28 &&  ((OP & 0x1F0000) >> 16) <= 31 ) || ((OP & 0x1F0000) >> 16) == 7 || ((OP & 0x1F0000) >> 16) == 8)){
+                printf("ERROR: Registro invalido.\n");
+                exit(1);
+            }
             if (OP & 0x8000)
                 direccion_fisica = getDireccionFisica(*programa, programa->registros[(OP & 0x1F0000) >> 16] - CambiarSigno((OP & 0xFFFF) + 0xFFFF0000));
             else
@@ -777,7 +821,10 @@ void setOperando(tipoMV *programa, uint32_t OP, uint32_t valor_cargar){
            cant_bytes -= ((OP & 0xC00000) >> 22);
 
         if ((OP & 0x1F0000) >> 16){
-
+            if ((programa->versionVMX) == 1 && ((((OP & 0x1F0000) >> 16) >= 28 &&  ((OP & 0x1F0000) >> 16) <= 31 ) || ((OP & 0x1F0000) >> 16) == 7 || ((OP & 0x1F0000) >> 16) == 8)){
+                printf("ERROR: Registro invalido.\n");
+                exit(1);
+            }
             if (OP & 0x8000)
                 direccion_fisica = getDireccionFisica(*programa, programa->registros[(OP & 0x1F0000) >> 16] - CambiarSigno((OP & 0xFFFF) + 0xFFFF0000));
             else
@@ -840,7 +887,7 @@ void pushearValor(tipoMV *programa, uint32_t valor){
 
     programa->registros[SP] -= 4;
     if ((programa->registros[SP] & 0xFFFF) < 0){
-        printf("STACK OVERFLOW\n");
+        printf("ERROR: STACK OVERFLOW.\n");
         exit(1);
     }
     else {

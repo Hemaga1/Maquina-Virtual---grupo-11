@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <math.h>
+#include <ctype.h>
 #include "maquinaVirtual.h"
 #include "Instrucciones.h"
 
@@ -196,13 +197,14 @@ int leerVMX(const char *filename, tipoMV *mv, Tparametros *parametros)
 
 
             iniciarTablaSegmentos(mv, tamaniosSeg, 5);
-
+            
             unsigned char entryPoint[2];
             if (fread(entryPoint, sizeof(char), 2, arch) != 2) {
                 printf("ERROR: No se pudo leer el entry point\n");
                 fclose(arch);
                 exit(1);
             }
+
             unsigned int tamanioEntryPoint = (entryPoint[0] << 8) | entryPoint[1];
 
             uint32_t direc = getDireccionFisica(*mv,mv->registros[CS]);
@@ -217,7 +219,7 @@ int leerVMX(const char *filename, tipoMV *mv, Tparametros *parametros)
                     fread(&mv->memoria[i], 1, 1, arch);
                 }
             }
-            mv->registros[IP] = mv->registros[CS];
+            mv->registros[IP] = mv->registros[CS] + tamanioEntryPoint;
 
         }
         else {
@@ -375,6 +377,7 @@ void Disassembler(tipoMV programa)
     uint32_t dir;
     uint32_t cantbytes;
     uint32_t op1, op2;
+    int entrypoint = programa.registros[IP] & 0xFFFF;
 
 
     if (programa.registros[KS] != -1) {
@@ -383,7 +386,6 @@ void Disassembler(tipoMV programa)
         char cadena[500];
 
         while (dir < programa.TS[programa.registros[KS] >> 16][1] + direcBase){
-
 
             printf(" [%04X] ", dir);
             memset(cadena,0,strlen(cadena));
@@ -402,10 +404,15 @@ void Disassembler(tipoMV programa)
             while (i < 7)
             {
                 printf("   ");
-                i++;
+                i++; 
             }
             printf("| ");
-            printf("\"%s\"",cadena);
+            for (int j=0; j<i; j++){
+                if ( (cadena[j]> 0) && (cadena[j]<255) && isprint(cadena[j]))
+                    printf("%c",cadena[j]);
+                else
+                    printf("%c",'.');
+            }
             printf("\n");
             dir++;
         }
@@ -418,7 +425,7 @@ void Disassembler(tipoMV programa)
 
     while (dir < programa.TS[programa.registros[CS] >> 16][1] + direcBase)
     {
-        if (dir == programa.TS[programa.registros[CS] >> 16][0])
+        if (dir == programa.TS[programa.registros[CS] >> 16][0] + entrypoint)
             printf(">");
         else
             printf(" ");
@@ -669,8 +676,6 @@ void ejecutar_maquina(tipoMV *mv)
         TOP1 = (instruccion >> 4) & mascaraTOP;
 
         mv->registros[IP] = mv->registros[IP] + 1;
-
-
 
         if (TOP2 != 0)
             leerOperando(mv, TOP2, OP2);

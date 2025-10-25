@@ -497,7 +497,10 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
                 SetearAccesoMemoria(programa, (13 << 16) + (programa->registros[EDX] & 0xFFFF) + i, 1 , direccion_fisica + i);
                 caracter = programa->memoria[direccion_fisica + i];
                 programa->registros[MBR] = caracter;
-                printf("%c",caracter);
+                 if ( (caracter> 0) && (caracter<255) && isprint(caracter))
+                    printf("%c",caracter);
+                else
+                    printf("%c",'.');
                 i++;
             }
             printf("\n");

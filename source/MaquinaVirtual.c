@@ -197,7 +197,7 @@ int leerVMX(const char *filename, tipoMV *mv, Tparametros *parametros)
 
 
             iniciarTablaSegmentos(mv, tamaniosSeg, 5);
-            
+
             unsigned char entryPoint[2];
             if (fread(entryPoint, sizeof(char), 2, arch) != 2) {
                 printf("ERROR: No se pudo leer el entry point\n");
@@ -392,10 +392,10 @@ void Disassembler(tipoMV programa)
             int i = 0;
 
             while((dir < programa.TS[programa.registros[KS] >> 16][1] + direcBase) && (programa.memoria[dir] != 0 )) {
-                if (i<7)
+                if (i<6)
                     printf("%02X ", programa.memoria[dir] & 0xFF);
                 else
-                    if (i<8)
+                    if (i<7)
                         printf(".. ");
                 cadena[i] = programa.memoria[dir];
                 i++;
@@ -404,7 +404,7 @@ void Disassembler(tipoMV programa)
             while (i < 7)
             {
                 printf("   ");
-                i++; 
+                i++;
             }
             printf("| ");
             for (int j=0; j<i; j++){
@@ -521,14 +521,14 @@ void PrintOperando(uint32_t op)
                 case 0:
                     break;
                 case 1: strcpy(registro,NombreRegistro[op & 0x1F]);
-                        switch (op & 0xC0){
-                            case 0x00: printf("%s",registro);
+                        switch ((op & 0xC0) >> 6){
+                            case 0b00: printf("%s",registro);
                                 break;
-                            case 0x01: printf("%cL",registro[1]);
+                            case 0b01: printf("%cL",registro[1]);
                                 break;
-                            case 0x10: printf("%cH",registro[1]);
+                            case 0b10: printf("%cH",registro[1]);
                                 break;
-                            case 0x11: printf("%cX",registro[1]);
+                            case 0b11: printf("%cX",registro[1]);
                                 break;
                         }
                     break;

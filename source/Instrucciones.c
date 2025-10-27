@@ -491,16 +491,19 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
             printf(" [%04X] ",direccion_fisica);
 
 
-            int i=0;
+
             char caracter = ' ';
+            SetearAccesoMemoria(programa, (13 << 16) + (programa->registros[EDX] & 0xFFFF), 1 , direccion_fisica);
+            caracter = programa->memoria[direccion_fisica];
+            int i=1;
             while ((caracter != '\0') && (i < programa->registros[ECX])){
-                SetearAccesoMemoria(programa, (13 << 16) + (programa->registros[EDX] & 0xFFFF) + i, 1 , direccion_fisica + i);
-                caracter = programa->memoria[direccion_fisica + i];
                 programa->registros[MBR] = caracter;
-                 if ( (caracter> 0) && (caracter<255) && isprint(caracter))
+                if ( (caracter > 0) && (caracter<255) && isprint(caracter))
                     printf("%c",caracter);
                 else
                     printf("%c",'.');
+                SetearAccesoMemoria(programa, (13 << 16) + (programa->registros[EDX] & 0xFFFF) + i, 1 , direccion_fisica + i);
+                caracter = programa->memoria[direccion_fisica + i];
                 i++;
             }
             printf("\n");

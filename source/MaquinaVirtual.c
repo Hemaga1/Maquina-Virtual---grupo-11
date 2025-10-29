@@ -260,7 +260,7 @@ void leerVMI(tipoMV *mv, char *fileName) {
             mv->versionVMI = 1;
             unsigned char tamMemoria[2];
             fread(tamMemoria, 1, 2, arch);
-            mv->tamanioMemoria = (tamMemoria[0] << 8) | tamMemoria[1];
+            mv->tamanioMemoria = (tamMemoria[0] << 8) | tamMemoria[1] * 1024;
             mv->memoria = (char *)malloc(mv->tamanioMemoria);
             if (mv->memoria == NULL) {
                 fprintf(stderr, "ERROR: No se pudo asignar memoria.\n");
@@ -413,6 +413,7 @@ void Disassembler(tipoMV programa)
                 else
                     printf("%c",'.');
             }
+            //printf("%s",cadena);
             printf("\n");
             dir++;
         }
@@ -435,7 +436,7 @@ void Disassembler(tipoMV programa)
         op1 = ((programa.memoria[dir] & 0b110000) >> 4) << 24;
         op2 = ((programa.memoria[dir] & 0b11000000) >> 6) << 24;
 
-        cantbytes = (op1 >> 24) + (op2 >> 24) + 1;
+        cantbytes = (op1 >> 24) + (op2 >> 24);
         for (int i = 0; i < 7; i++)
         {
             if (i > cantbytes)
@@ -631,7 +632,6 @@ void ejecutar_maquina(tipoMV *mv)
     inicioVectorOper(operaciones);
 
 
-
     if (mv->versionVMX == 2){
         if (mv->registros[PS]!= -1){
             pushearValor(mv,mv->argv);
@@ -689,6 +689,9 @@ void ejecutar_maquina(tipoMV *mv)
         // EJECUCION INSTRUCCION
 
         uint32_t aux =mv->registros[OPC];
+
+        //printf("OPC: %s  EAX: %X  EBX: %X ECX: %X  EDX: %X EEX: %X EFX: %X\n",Mnemonicos[mv->registros[OPC]],mv->registros[EAX],mv->registros[EBX],mv->registros[ECX],mv->registros[EDX],mv->registros[EEX],mv->registros[EFX]);
+        //printf("SP: %X\n",mv->registros[SP]);
 
 
         if (mv->registros[OPC] >= 0 && mv->registros[OPC] < NUM_INSTRUCCIONES && operaciones[mv->registros[OPC]] != NULL){
@@ -804,7 +807,7 @@ uint32_t getValorCargar(tipoMV *programa, uint32_t OP){
                         break;
                     case 0b01: res = programa->registros[OP & 0x1F] & 0xFF;
                         break;
-                    case 0b10: res = programa->registros[OP & 0x1F] & 0xFF00;
+                    case 0b10: res = (programa->registros[OP & 0x1F] & 0xFF00) >> 8;
                         break;
                     case 0b11: res = programa->registros[OP & 0x1F] & 0xFFFF;
                         break;
@@ -847,13 +850,17 @@ void setOperando(tipoMV *programa, uint32_t OP, uint32_t valor_cargar){
     else {
         if ((programa->versionVMX == 2) || (programa->versionVMI == 1)){
             switch ((OP & 0xC0)>>6){
-                case 0b00: programa->registros[OP & 0x1F] = valor_cargar;
+                case 0b00:
+                    programa->registros[OP & 0x1F] = valor_cargar;
                     break;
-                case 0b01: programa->registros[OP & 0x1F] = (programa->registros[OP & 0x1F] & 0xFFFFFF00) + (valor_cargar & 0xFF);
+                case 0b01:
+                    programa->registros[OP & 0x1F] = (programa->registros[OP & 0x1F] & 0xFFFFFF00) + (valor_cargar & 0xFF);
                     break;
-                case 0b10: programa->registros[OP & 0x1F] = (programa->registros[OP & 0x1F] & 0xFFFF00FF) + (valor_cargar & 0xFF00);
+                case 0b10:
+                    programa->registros[OP & 0x1F] = (programa->registros[OP & 0x1F] & 0xFFFF00FF) + ((valor_cargar & 0xFF) << 8);
                     break;
-                case 0b11: programa->registros[OP & 0x1F] = (programa->registros[OP & 0x1F] & 0xFFFF0000) + (valor_cargar & 0xFFFF);
+                case 0b11:
+                    programa->registros[OP & 0x1F] = (programa->registros[OP & 0x1F] & 0xFFFF0000) + (valor_cargar & 0xFFFF);
                     break;
             }
         }

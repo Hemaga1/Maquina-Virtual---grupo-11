@@ -206,9 +206,31 @@ void DIV(tipoMV *programa , uint32_t op1, uint32_t op2){
 void CMP(tipoMV *programa, uint32_t op1, uint32_t op2){
     uint32_t valor_cargar;
     uint32_t restar;
+    uint8_t tipo_op = getTipoOperando(op1);
 
     restar = getValorCargar(programa, op2);
     valor_cargar = getValorCargar(programa, op1);
+
+    if (tipo_op == 2) {
+        switch((op1 & 0xC0)>>6){
+            case 0b00: restar = (restar & 0xFF);
+                break;
+            case 0b01: restar = (restar & 0xFF);
+                break;
+            case 0b10: restar = (restar & 0xFF) << 8;
+                break;
+            case 0b11: restar = (restar & 0xFFFF);
+                break;
+        }
+    }
+    else if (tipo_op == 3){
+            uint8_t cant_bytes = 4;
+            if ((programa->versionVMX == 2) || (programa->versionVMI == 1))
+               cant_bytes -= ((op1 & 0xC00000) >> 22);
+            restar = (restar & 0xFF);
+         }
+
+    //printf("COMPARAR valor-cargar: %X  restar: %X\n",valor_cargar,restar);
 
     if (restar & 0x80000000)
         ModificarCC(programa,valor_cargar + CambiarSigno(restar));
@@ -488,7 +510,7 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
             uint32_t direccion_fisica = getDireccionFisica(*programa,programa->registros[EDX]);
             uint16_t formato = programa->registros[EAX];
 
-            printf(" [%04X] ",direccion_fisica);
+            //printf(" [%04X] ",direccion_fisica);
 
 
 
@@ -496,17 +518,17 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
             SetearAccesoMemoria(programa, (13 << 16) + (programa->registros[EDX] & 0xFFFF), 1 , direccion_fisica);
             caracter = programa->memoria[direccion_fisica];
             int i=1;
-            while ((caracter != '\0') && (i < programa->registros[ECX])){
+            while (caracter != '\0'){
                 programa->registros[MBR] = caracter;
-                if ( (caracter > 0) && (caracter<255) && isprint(caracter))
+                if ( (caracter == '\n') || (caracter == ' ') || (caracter > 0) && (caracter<255) && isprint(caracter))
                     printf("%c",caracter);
-                else
+               else
                     printf("%c",'.');
                 SetearAccesoMemoria(programa, (13 << 16) + (programa->registros[EDX] & 0xFFFF) + i, 1 , direccion_fisica + i);
                 caracter = programa->memoria[direccion_fisica + i];
                 i++;
             }
-            printf("\n");
+            //printf("\n");
     }
     else if ((programa->registros[OP1] & 0xFFFF) == 7){
                 system("cls");
@@ -597,6 +619,7 @@ void PUSH(tipoMV *programa, uint32_t op1, uint32_t op2){
         exit(1);
     }
     else {
+
         valor_cargar = getValorCargar(programa, op2);
         direccion_fisica = getDireccionFisica(*programa,  programa->registros[SP]);
 
@@ -608,6 +631,8 @@ void PUSH(tipoMV *programa, uint32_t op1, uint32_t op2){
         for (int i=0; i<4 ; i++){
             programa->memoria[direccion_fisica + 3 - i] = (programa->registros[MBR] & (0xFF << (i*8))) >> (i*8);
         }
+
+
     }
 }
 
@@ -626,6 +651,7 @@ void POP(tipoMV *programa, uint32_t op1, uint32_t op2){
     setOperando(programa,op2,programa->registros[MBR]);
 
     programa->registros[SP] += 4;
+
 
     if ((programa->registros[SP] & 0xFFFF) > programa->TS[programa->registros[SS] >> 16][1]){
         printf("ERROR: STACK UNDERFLOW.\n");

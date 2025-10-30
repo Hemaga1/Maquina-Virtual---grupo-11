@@ -260,7 +260,7 @@ void leerVMI(tipoMV *mv, char *fileName) {
             mv->versionVMI = 1;
             unsigned char tamMemoria[2];
             fread(tamMemoria, 1, 2, arch);
-            mv->tamanioMemoria = (tamMemoria[0] << 8) | tamMemoria[1];
+            mv->tamanioMemoria = ((tamMemoria[0] << 8) | tamMemoria[1]) * 1024;
             mv->memoria = (char *)malloc(mv->tamanioMemoria);
             if (mv->memoria == NULL) {
                 fprintf(stderr, "ERROR: No se pudo asignar memoria.\n");
@@ -299,8 +299,9 @@ void crearVMI(tipoMV *mv, char *fileName) {
 
         fwrite(header, sizeof(char), 5, arch);
         fwrite(&version, sizeof(char), 1, arch);
-
-        char tamMemoria[] = {(mv->tamanioMemoria & 0x0000FF00) >> 8, mv->tamanioMemoria & 0x000000FF};
+        
+        uint16_t tamanioKiB = mv->tamanioMemoria / 1024;
+        char tamMemoria[] = {(tamanioKiB & 0x0000FF00) >> 8, tamanioKiB & 0x000000FF};
         fwrite(tamMemoria, 1, 2, arch);
         for(int i = 0; i < NUM_REGISTROS; i++){
             char registro[] = {(mv->registros[i]>>24)&0xFF,
@@ -356,7 +357,7 @@ void iniciarTablaSegmentos(tipoMV *mv, uint16_t sizes[], unsigned short int cant
                 case 0: mv->registros[CS] = (indiceTS << 16);
                     break;
                 case 1: mv->registros[DS] = (indiceTS << 16);
-                    break;
+                    break; 
                 case 2: mv->registros[ES] = (indiceTS << 16);
                     break;
                 case 3: mv->registros[SS] = (indiceTS << 16);
@@ -862,6 +863,7 @@ void setOperando(tipoMV *programa, uint32_t OP, uint32_t valor_cargar){
                     programa->registros[OP & 0x1F] = (programa->registros[OP & 0x1F] & 0xFFFF00FF) + ((valor_cargar & 0xFF) << 8);
                     break;
                 case 0b11:
+
                     programa->registros[OP & 0x1F] = (programa->registros[OP & 0x1F] & 0xFFFF0000) + (valor_cargar & 0xFFFF);
                     break;
             }

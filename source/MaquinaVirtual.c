@@ -260,7 +260,7 @@ void leerVMI(tipoMV *mv, char *fileName) {
             mv->versionVMI = 1;
             unsigned char tamMemoria[2];
             fread(tamMemoria, 1, 2, arch);
-            mv->tamanioMemoria = (tamMemoria[0] << 8) | tamMemoria[1] * 1024;
+            mv->tamanioMemoria = (tamMemoria[0] << 8) | tamMemoria[1];
             mv->memoria = (char *)malloc(mv->tamanioMemoria);
             if (mv->memoria == NULL) {
                 fprintf(stderr, "ERROR: No se pudo asignar memoria.\n");
@@ -632,6 +632,7 @@ void ejecutar_maquina(tipoMV *mv)
     inicioVectorOper(operaciones);
 
 
+
     if (mv->versionVMX == 2){
         if (mv->registros[PS]!= -1){
             pushearValor(mv,mv->argv);
@@ -689,6 +690,7 @@ void ejecutar_maquina(tipoMV *mv)
         // EJECUCION INSTRUCCION
 
         uint32_t aux =mv->registros[OPC];
+
 
         //printf("OPC: %s  EAX: %X  EBX: %X ECX: %X  EDX: %X EEX: %X EFX: %X\n",Mnemonicos[mv->registros[OPC]],mv->registros[EAX],mv->registros[EBX],mv->registros[ECX],mv->registros[EDX],mv->registros[EEX],mv->registros[EFX]);
         //printf("SP: %X\n",mv->registros[SP]);

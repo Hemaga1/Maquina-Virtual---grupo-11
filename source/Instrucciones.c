@@ -485,7 +485,7 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
             printf(" [%04X] ",direccion_fisica);
 
             char cadena[1000];
-            fgets(cadena,1000,stdin);
+            scanf("%s",cadena);
             int i;
             if ((programa->registros[ECX] & 0xFFFF) != 0xFFFF){
                 for (i=0; i<programa->registros[ECX]; i++){
@@ -493,6 +493,7 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
                     SetearAccesoMemoria(programa, (13 << 16) + (programa->registros[EDX] & 0xFFFF) + i, 1 , direccion_fisica + i);
                     programa->memoria[direccion_fisica + i] = cadena[i];
                 }
+                programa->memoria[direccion_fisica + i] = '\0';
             }
             else {
                 int i=0;
@@ -502,8 +503,9 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
                     programa->memoria[direccion_fisica + i] = cadena[i];
                     i++;
                 }
+                programa->memoria[direccion_fisica + i] = '\0';
             }
-            programa->memoria[direccion_fisica + i] = '\0';
+
     }
     else if ((programa->registros[OP1] & 0xFFFF) == 4) {
 

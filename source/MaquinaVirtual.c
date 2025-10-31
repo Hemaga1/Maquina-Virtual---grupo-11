@@ -643,7 +643,7 @@ void ejecutar_maquina(tipoMV *mv)
     }
 
 
-    while ((mv->registros[IP] < (( mv->registros[CS] + mv->TS[mv->registros[IP] >> 16][1] ))) && (mv->registros[IP] != -1))
+    while ((mv->registros[IP] != -1) && (mv->registros[IP] < (( mv->registros[CS] + mv->TS[mv->registros[IP] >> 16][1] ))))
     {
         char opcionDebug;
         if (mv->breakpointFlag == 1)
@@ -950,3 +950,4 @@ const char *NombreRegistro[32] = {
     [30] = "KS",
     [31] = "PS"
 };
+

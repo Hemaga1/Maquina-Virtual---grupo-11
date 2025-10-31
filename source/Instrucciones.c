@@ -496,7 +496,7 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
                 programa->memoria[direccion_fisica + i] = '\0';
             }
             else {
-                int i=0;
+                i=0;
                 while (cadena[i] != '\0'){
                     programa->registros[MBR] = cadena[i];
                     SetearAccesoMemoria(programa, (0x13 << 16) + (programa->registros[EDX] & 0xFFFF) + i, 1 , direccion_fisica + i);
@@ -697,3 +697,4 @@ void RET(tipoMV *programa, uint32_t op1, uint32_t op2){
 void STOP(tipoMV *programa, uint32_t op1, uint32_t op2){
     programa->registros[IP] = -1;
 }
+

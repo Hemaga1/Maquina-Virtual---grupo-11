@@ -481,9 +481,6 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
     else if ((programa->registros[OP1] & 0xFFFF) == 3) {
             uint32_t direccion_fisica = getDireccionFisica(*programa,programa->registros[EDX]);
             uint16_t formato = programa->registros[EAX];
-
-            printf(" [%04X] ",direccion_fisica);
-
             char cadena[1000];
             scanf("%s",cadena);
             int i;
@@ -697,4 +694,5 @@ void RET(tipoMV *programa, uint32_t op1, uint32_t op2){
 void STOP(tipoMV *programa, uint32_t op1, uint32_t op2){
     programa->registros[IP] = -1;
 }
+
 

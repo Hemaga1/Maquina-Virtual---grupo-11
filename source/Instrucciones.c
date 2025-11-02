@@ -207,14 +207,13 @@ void CMP(tipoMV *programa, uint32_t op1, uint32_t op2){
     uint32_t valor_cargar;
     uint32_t restar;
     uint8_t tipo_op = getTipoOperando(op1);
+    uint32_t mascara;
 
     restar = getValorCargar(programa, op2);
     valor_cargar = getValorCargar(programa, op1);
 
-    if (tipo_op == 2) {
+    if (tipo_op == 1) {
         switch((op1 & 0xC0)>>6){
-            case 0b00: restar = (restar & 0xFF);
-                break;
             case 0b01: restar = (restar & 0xFF);
                 break;
             case 0b10: restar = (restar & 0xFF) << 8;
@@ -227,10 +226,16 @@ void CMP(tipoMV *programa, uint32_t op1, uint32_t op2){
             uint8_t cant_bytes = 4;
             if ((programa->versionVMX == 2) || (programa->versionVMI == 1))
                cant_bytes -= ((op1 & 0xC00000) >> 22);
-            restar = (restar & 0xFF);
+            switch (cant_bytes) {
+                case 4: mascara = 0xFFFFFFFF;
+                    break;
+                case 2: mascara = 0xFFFF;
+                    break;
+                case 1: mascara = 0xFF;
+                    break;
+            }
+            restar = (restar & mascara);
          }
-
-    //printf("COMPARAR valor-cargar: %X  restar: %X\n",valor_cargar,restar);
 
     if (restar & 0x80000000)
         ModificarCC(programa,valor_cargar + CambiarSigno(restar));
@@ -425,7 +430,6 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
         printf("\n");
     }
     else if ((programa->registros[OP1] & 0xFFFF) == 2){
-            char cadena[33];
             uint32_t direccion_fisica = getDireccionFisica(*programa,programa->registros[EDX]);
             uint16_t formato = programa->registros[EAX];
             programa->registros[MBR] = 0;
@@ -480,7 +484,6 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
     }
     else if ((programa->registros[OP1] & 0xFFFF) == 3) {
             uint32_t direccion_fisica = getDireccionFisica(*programa,programa->registros[EDX]);
-            uint16_t formato = programa->registros[EAX];
             char cadena[1000];
             scanf("%s",cadena);
             int i;
@@ -505,13 +508,7 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
 
     }
     else if ((programa->registros[OP1] & 0xFFFF) == 4) {
-
             uint32_t direccion_fisica = getDireccionFisica(*programa,programa->registros[EDX]);
-            uint16_t formato = programa->registros[EAX];
-
-            //printf(" [%04X] ",direccion_fisica);
-
-
 
             char caracter = ' ';
             SetearAccesoMemoria(programa, (13 << 16) + (programa->registros[EDX] & 0xFFFF), 1 , direccion_fisica);
@@ -519,7 +516,7 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
             int i=1;
             while (caracter != '\0'){
                 programa->registros[MBR] = caracter;
-                if ( (caracter == '\n') || (caracter == ' ') || (caracter > 0) && (caracter<255) && isprint(caracter))
+                if ( (caracter == '\n') || (caracter == ' ') || ((caracter > 0) && (caracter<255) && isprint(caracter)))
                     printf("%c",caracter);
                else
                     printf("%c",'.');
@@ -527,7 +524,6 @@ void SYS(tipoMV *programa, uint32_t op1, uint32_t op2){
                 caracter = programa->memoria[direccion_fisica + i];
                 i++;
             }
-            //printf("\n");
     }
     else if ((programa->registros[OP1] & 0xFFFF) == 7){
                 system("cls");

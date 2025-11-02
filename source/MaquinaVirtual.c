@@ -145,7 +145,7 @@ int leerVMX(const char *filename, tipoMV *mv, Tparametros *parametros)
                 exit(1);
             }
 
-            /* reservar memoria para todo el espacio de la MV antes de leer el code segment */
+            // Reservar memoria para todo el espacio de la MV antes de leer el code segment
             mv->memoria = (char *)malloc(mv->tamanioMemoria);
             if (mv->memoria == NULL) {
                 fprintf(stderr, "ERROR: No se pudo asignar memoria.\n");
@@ -294,12 +294,12 @@ void crearVMI(tipoMV *mv, char *fileName) {
     unsigned char header[6] = "VMI25";
     unsigned char version = 1;
     if ((arch = fopen(fileName, "wb")) == NULL)
-        printf("ERROR: No se pudo crear o abrir el archivo.", fileName);
+        printf("ERROR: No se pudo crear o abrir el archivo.");
     else {
 
         fwrite(header, sizeof(char), 5, arch);
         fwrite(&version, sizeof(char), 1, arch);
-        
+
         uint16_t tamanioKiB = mv->tamanioMemoria / 1024;
         char tamMemoria[] = {(tamanioKiB & 0x0000FF00) >> 8, tamanioKiB & 0x000000FF};
         fwrite(tamMemoria, 1, 2, arch);
@@ -357,7 +357,7 @@ void iniciarTablaSegmentos(tipoMV *mv, uint16_t sizes[], unsigned short int cant
                 case 0: mv->registros[CS] = (indiceTS << 16);
                     break;
                 case 1: mv->registros[DS] = (indiceTS << 16);
-                    break; 
+                    break;
                 case 2: mv->registros[ES] = (indiceTS << 16);
                     break;
                 case 3: mv->registros[SS] = (indiceTS << 16);
@@ -414,7 +414,6 @@ void Disassembler(tipoMV programa)
                 else
                     printf("%c",'.');
             }
-            //printf("%s",cadena);
             printf("\n");
             dir++;
         }
@@ -692,9 +691,6 @@ void ejecutar_maquina(tipoMV *mv)
 
         uint32_t aux =mv->registros[OPC];
 
-
-        //printf("OPC: %s  EAX: %X  EBX: %X ECX: %X  EDX: %X EEX: %X EFX: %X\n",Mnemonicos[mv->registros[OPC]],mv->registros[EAX],mv->registros[EBX],mv->registros[ECX],mv->registros[EDX],mv->registros[EEX],mv->registros[EFX]);
-        //printf("SP: %X\n",mv->registros[SP]);
 
 
         if (mv->registros[OPC] >= 0 && mv->registros[OPC] < NUM_INSTRUCCIONES && operaciones[mv->registros[OPC]] != NULL){
